@@ -1,25 +1,33 @@
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router'
 
 const register = () => {
   const router = useRouter()
   const [fullName, setFullName] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const handleRegister = () => {
     // TODO: connect to Firebase Authentication here
-    console.log('Registering', fullName, email, password, confirmPassword)
+    console.log('Registering', fullName, phoneNumber, email, password, confirmPassword)
   }
 
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Image
             source={require('../assets/img/logo.png')}
@@ -31,16 +39,31 @@ const register = () => {
         </View>
 
         <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Juan Dela Cruz"
-              placeholderTextColor="#9CA3AF"
-              value={fullName}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-            />
+          <Text style={styles.sectionLabel}>Personal details</Text>
+          <View style={styles.detailsRow}>
+            <View style={[styles.inputGroup, styles.halfInputGroup]}>
+              <Text style={styles.label}>Full name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Juan Dela Cruz"
+                placeholderTextColor="#9CA3AF"
+                value={fullName}
+                onChangeText={setFullName}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={[styles.inputGroup, styles.halfInputGroup]}>
+              <Text style={styles.label}>Phone no.</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="09XXXXXXXXX"
+                placeholderTextColor="#9CA3AF"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -56,28 +79,55 @@ const register = () => {
             />
           </View>
 
+          <Text style={[styles.sectionLabel, styles.accountSectionLabel]}>Account security</Text>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Create a password"
-              placeholderTextColor="#9CA3AF"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            <View style={styles.passwordInputWrapper}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Create a password"
+                placeholderTextColor="#9CA3AF"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword((visible) => !visible)}
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={21}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirm password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Re-enter your password"
-              placeholderTextColor="#9CA3AF"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-            />
+            <View style={styles.passwordInputWrapper}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Re-enter your password"
+                placeholderTextColor="#9CA3AF"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowConfirmPassword((visible) => !visible)}
+                accessibilityLabel={showConfirmPassword ? 'Hide confirmed password' : 'Show confirmed password'}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={21}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}>
@@ -132,8 +182,26 @@ const styles = StyleSheet.create({
   form: {
     width: '100%',
   },
+  sectionLabel: {
+    marginBottom: 10,
+    color: '#2475AD',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  accountSectionLabel: {
+    marginTop: 8,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    columnGap: 10,
+  },
   inputGroup: {
     marginBottom: 18,
+  },
+  halfInputGroup: {
+    flex: 1,
   },
   label: {
     fontSize: 13,
@@ -151,8 +219,22 @@ const styles = StyleSheet.create({
     color: '#111827',
     backgroundColor: '#F9FAFB',
   },
+  passwordInputWrapper: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
   primaryButton: {
-    backgroundColor: '#68b5f5',
+    backgroundColor: '#298fdd',
     borderRadius: 10,
     paddingVertical: 15,
     alignItems: 'center',
@@ -186,7 +268,7 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     fontSize: 14,
-    color: '#0F6E56',
+    color: '#4898e4',
     fontWeight: '700',
   },
 })

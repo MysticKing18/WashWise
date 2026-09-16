@@ -1,8 +1,65 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity, Animated, Dimensions } from 'react-native'
+import { StyleSheet, Text, View, Image, TouchableOpacity, Animated, Dimensions, ImageSourcePropType, StyleProp, ImageStyle } from 'react-native'
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'expo-router'
+import { LinearGradient } from 'expo-linear-gradient'
 
-const { width } = Dimensions.get('window')
+const { width, height } = Dimensions.get('window')
+
+type FloatingBubbleProps = {
+  source: ImageSourcePropType
+  size: number
+  style?: StyleProp<ImageStyle>
+  duration?: number
+  delay?: number
+  opacity?: number
+}
+
+// Reusable floating bubble component — drifts gently up/down forever
+const FloatingBubble = ({ source, size, style, duration = 4000, delay = 0, opacity = 0.85 }: FloatingBubbleProps) => {
+  const floatAnim = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration,
+          delay,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration,
+          useNativeDriver: true,
+        }),
+      ])
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [])
+
+  const translateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -14],
+  })
+
+  return (
+    <Animated.Image
+      source={source}
+      style={[
+        {
+          position: 'absolute',
+          width: size,
+          height: size,
+          opacity,
+          transform: [{ translateY }],
+        },
+        style,
+      ]}
+      resizeMode="contain"
+    />
+  )
+}
 
 const index = () => {
   const router = useRouter()
@@ -98,14 +155,75 @@ const index = () => {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      router.replace('/login')
+      router.replace('/choice')
     })
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.backgroundCircleLarge} />
-      <View style={styles.backgroundCircleSmall} />
+      {/* Soft blue gradient backdrop, like the WashWise reference */}
+      <LinearGradient
+        colors={['#BFE6FB', '#DFF3FD', '#FFFFFF']}
+        style={StyleSheet.absoluteFill}
+      />
+      
+
+      {/* Scattered floating bubbles — mix of both bubble images, varied sizes/opacity so it reads as background, not foreground clutter */}
+      <FloatingBubble
+        source={require('../assets/img/bubble1.png')}
+        size={70}
+        style={{ top: height * 0.08, left: -20 }}
+        duration={3800}
+        opacity={0.55}
+      />
+      <FloatingBubble
+        source={require('../assets/img/bubble2.png')}
+        size={40}
+        style={{ top: height * 0.05, right: 30 }}
+        duration={3000}
+        delay={200}
+        opacity={0.5}
+      />
+      <FloatingBubble
+        source={require('../assets/img/bubble2.png')}
+        size={110}
+        style={{ top: height * 0.18, right: -35 }}
+        duration={4600}
+        delay={400}
+        opacity={0.45}
+      />
+      <FloatingBubble
+        source={require('../assets/img/bubble1.png')}
+        size={26}
+        style={{ top: height * 0.32, left: 40 }}
+        duration={2600}
+        delay={600}
+        opacity={0.6}
+      />
+      <FloatingBubble
+        source={require('../assets/img/bubble2.png')}
+        size={55}
+        style={{ bottom: height * 0.28, left: -15 }}
+        duration={4000}
+        delay={100}
+        opacity={0.5}
+      />
+      <FloatingBubble
+        source={require('../assets/img/bubble1.png')}
+        size={90}
+        style={{ bottom: height * 0.16, right: -25 }}
+        duration={5200}
+        delay={300}
+        opacity={0.4}
+      />
+      <FloatingBubble
+        source={require('../assets/img/bubble2.png')}
+        size={22}
+        style={{ bottom: height * 0.38, right: 60 }}
+        duration={2400}
+        delay={500}
+        opacity={0.65}
+      />
 
       <Animated.View
         style={[
@@ -129,7 +247,7 @@ const index = () => {
           transform: [{ translateY: textTranslateY }],
         }}
       >
-        <Text style={styles.tagline}>Laundry made simple</Text>
+        <Text style={styles.tagline}>Clean Clothes,Hassle-Free</Text>
       </Animated.View>
 
       <Animated.View
@@ -162,28 +280,9 @@ export default index
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-  },
-  backgroundCircleLarge: {
-    position: 'absolute',
-    width: width * 1.4,
-    height: width * 1.4,
-    borderRadius: width * 0.7,
-    backgroundColor: '#EAF6FD',
-    top: -width * 0.6,
-    right: -width * 0.5,
-  },
-  backgroundCircleSmall: {
-    position: 'absolute',
-    width: width * 0.9,
-    height: width * 0.9,
-    borderRadius: width * 0.45,
-    backgroundColor: '#F3FAFE',
-    bottom: -width * 0.4,
-    left: -width * 0.4,
   },
   logoWrapper: {
     width: 180,
@@ -198,9 +297,10 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 15,
-    color: '#6B7280',
+    color: '#4B5A66',
     fontWeight: '500',
     marginBottom: 48,
+    textAlign: 'center',
   },
   buttonWrapper: {
     position: 'absolute',
@@ -214,6 +314,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     elevation: 3,
+    shadowColor: '#3A9BE0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
   },
   primaryButtonText: {
     color: '#FFFFFF',
