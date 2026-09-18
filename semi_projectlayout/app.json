@@ -1,8 +1,8 @@
 {
   "expo": {
-    "scheme": "prac_reactnative",
+    "scheme": "semi_projectlayout",
     "name": "Prac_reactnative",
-    "slug": "Prac_reactnative",
+    "slug": "semi_projectlayout",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

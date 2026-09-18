@@ -1,14 +1,14 @@
-import { Stack } from "expo-router";
-import * as NavigationBar from "expo-navigation-bar";
-import { useEffect } from "react";
-import { Platform } from "react-native";
+import { Stack } from 'expo-router'
+import * as NavigationBar from 'expo-navigation-bar'
+import { useEffect } from 'react'
+import { Platform } from 'react-native'
 
 export default function RootLayout() {
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
+	useEffect(() => {
+		if (Platform.OS !== 'android') return
 
-    NavigationBar.setVisibilityAsync("hidden");
-  }, []);
+		NavigationBar.setVisibilityAsync('hidden')
+	}, [])
 
-  return <Stack screenOptions={{ headerShown: false }} />; 
+	return <Stack screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
 }
