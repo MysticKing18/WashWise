@@ -5,14 +5,21 @@ import React, { useEffect, useRef } from 'react'
 import {
   Animated,
   Dimensions,
+  Image,
   ImageSourcePropType,
   ImageStyle,
   StyleProp,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
+import { Alert } from 'react-native'
+import { signOut } from 'firebase/auth'
+import { auth } from '../../firebase/firebase'
+import { getUserById, updateUserProfile } from '../../database/services/userService'
+import { User } from '../../database/models/User'
 
 const { height } = Dimensions.get('window')
 
@@ -52,6 +59,75 @@ const FloatingBubble = ({ source, size, style, duration = 4000, delay = 0, opaci
 
 const profile = () => {
   const router = useRouter()
+  const [customer, setCustomer] = React.useState<User | null>(null)
+  const [isEditing, setIsEditing] = React.useState(false)
+  const [fullName, setFullName] = React.useState('')
+  const [phone, setPhone] = React.useState('')
+  const [isSaving, setIsSaving] = React.useState(false)
+
+  React.useEffect(() => {
+    const loadProfile = async () => {
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        router.replace('/login')
+        return
+      }
+
+      try {
+        const profileData = await getUserById(currentUser.uid)
+        if (!profileData || !profileData.isActive) {
+          await signOut(auth)
+          router.replace('/login')
+          return
+        }
+        setCustomer(profileData)
+        setFullName(profileData.fullName)
+        setPhone(profileData.phone || '')
+      } catch {
+        Alert.alert('Profile unavailable', 'Unable to load your profile.')
+      }
+    }
+
+    void loadProfile()
+  }, [router])
+
+  const handleEdit = () => {
+    if (!customer) return
+    setFullName(customer.fullName)
+    setPhone(customer.phone || '')
+    setIsEditing(true)
+  }
+
+  const handleSave = async () => {
+    if (!customer || !fullName.trim()) {
+      Alert.alert('Invalid profile', 'Full name is required.')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      await updateUserProfile(customer.userId, {
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+      })
+      setCustomer({ ...customer, fullName: fullName.trim(), phone: phone.trim() })
+      setIsEditing(false)
+      Alert.alert('Profile updated', 'Your profile has been saved.')
+    } catch {
+      Alert.alert('Update failed', 'Unable to save your profile right now.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      router.replace('/login')
+    } catch {
+      Alert.alert('Logout failed', 'Unable to log out right now.')
+    }
+  }
 
   return (
     <View style={styles.screen}>
@@ -67,7 +143,7 @@ const profile = () => {
         <View style={styles.header}>
           <View style={styles.brandWrap}>
             <View style={styles.logoCircle}>
-              <Ionicons name="shirt-outline" size={24} color="#0F7AD8" />
+              <Image source={require('../../assets/img/logo.png')} style={styles.logoImage} resizeMode="contain" />
             </View>
             <Text style={styles.brandText}>WashWise</Text>
           </View>
@@ -89,23 +165,46 @@ const profile = () => {
           </View>
 
           <View style={styles.profileInfo}>
-            <Text style={styles.name}>Luke Dela Cruz</Text>
-            <Text style={styles.email}>luke.delacruz@email.com</Text>
-            <Text style={styles.phone}>+63 912 345 6789</Text>
+            {isEditing ? (
+              <>
+                <TextInput
+                  style={styles.profileInput}
+                  value={fullName}
+                  onChangeText={setFullName}
+                  placeholder="Full name"
+                  placeholderTextColor="#9CA3AF"
+                />
+                <Text style={styles.email}>{customer?.email || ''}</Text>
+                <TextInput
+                  style={styles.profileInput}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Phone number"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="phone-pad"
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.name}>{customer?.fullName || 'Loading...'}</Text>
+                <Text style={styles.email}>{customer?.email || ''}</Text>
+                <Text style={styles.phone}>{customer?.phone || ''}</Text>
+              </>
+            )}
           </View>
 
-          <TouchableOpacity style={styles.editButton} activeOpacity={0.9}>
-            <Ionicons name="pencil" size={14} color="#FFFFFF" />
-            <Text style={styles.editButtonText}>Edit Profile</Text>
+          <TouchableOpacity style={styles.editButton} activeOpacity={0.9} onPress={isEditing ? handleSave : handleEdit} disabled={isSaving}>
+            <Ionicons name={isEditing ? 'checkmark' : 'pencil'} size={14} color="#FFFFFF" />
+            <Text style={styles.editButtonText}>{isSaving ? 'Saving...' : isEditing ? 'Save Profile' : 'Edit Profile'}</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.9} onPress={handleLogout}>
           <View style={styles.logoutIconWrap}>
             <Ionicons name="log-out-outline" size={20} color="#F15B5B" />
           </View>
           <Text style={styles.logoutText}>Logout</Text>
-          <Text style={styles.logoutSubtext}>Sign out of your account</Text>
+          <Text style={styles.logoutSubtext}></Text>
           <Ionicons name="chevron-forward" size={18} color="#53779A" style={styles.logoutArrow} />
         </TouchableOpacity>
       </View>
@@ -124,7 +223,7 @@ const profile = () => {
           <Text style={styles.navLabel}>Branches</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/profile')}>
-          <Ionicons name="person" size={25} color="#2563EB" />
+          <Ionicons name="person-circle-outline" size={24} color="#2563EB" />
           <Text style={[styles.navLabel, styles.activeNavLabel]}>Profile</Text>
         </TouchableOpacity>
       </View>
@@ -139,77 +238,74 @@ const styles = StyleSheet.create({
   backgroundBubble: { position: 'absolute' },
   content: {
     flex: 1,
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingHorizontal: 12,
+    paddingTop: 8,
     paddingBottom: 6,
   },
   header: {
-    marginTop: 6,
-    alignItems: 'flex-start',
+    marginTop: 2,
+    alignItems: 'center',
   },
   brandWrap: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    marginLeft: 4,
   },
   logoCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EAF7FF',
+    width: 92,
+    height: 68,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#BFE4FF',
+    transform: [{ translateY: 10 }],
+  },
+  logoImage: {
+    width: 86,
+    height: 66,
   },
   brandText: {
-    marginLeft: 10,
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1D4ED8',
-    letterSpacing: -0.5,
+    display: 'none',
   },
   titleWrap: {
-    marginTop: 16,
-    marginLeft: 4,
+    marginTop: 2,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '800',
     color: '#1F2937',
-    letterSpacing: -0.8,
   },
   subtitle: {
-    marginTop: 8,
-    fontSize: 15,
+    marginTop: 3,
+    fontSize: 10,
     fontWeight: '500',
     color: '#53657D',
-    lineHeight: 22,
+    lineHeight: 14,
+    textAlign: 'center',
   },
   card: {
-    marginTop: 22,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: 18,
-    paddingHorizontal: 22,
-    paddingTop: 18,
-    paddingBottom: 16,
+    marginTop: 18,
+    minHeight: 104,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#E3ECF5',
     shadowColor: '#A7BCD5',
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 3,
   },
   avatarWrap: {
-    alignSelf: 'center',
-    marginBottom: 14,
     position: 'relative',
+    marginRight: 10,
   },
   avatarBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#5CB2FF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -220,9 +316,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#0EA5E9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -230,74 +326,90 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   profileInfo: {
-    alignItems: 'center',
+    flex: 1,
+    alignItems: 'flex-start',
+    paddingBottom: 20,
   },
   name: {
-    fontSize: 19,
+    fontSize: 13,
     fontWeight: '800',
     color: '#1F2937',
   },
   email: {
-    marginTop: 6,
-    fontSize: 13,
+    marginTop: 3,
+    fontSize: 10,
     fontWeight: '500',
     color: '#4B5563',
   },
   phone: {
     marginTop: 3,
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '500',
     color: '#4B5563',
   },
+  profileInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#C9DCEB',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    marginBottom: 6,
+    fontSize: 11,
+    color: '#1F2937',
+    backgroundColor: '#FFFFFF',
+  },
   editButton: {
-    marginTop: 18,
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0F7AD8',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    gap: 6,
+    borderRadius: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    gap: 3,
   },
   editButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 9,
     fontWeight: '700',
   },
   logoutButton: {
-    marginTop: 24,
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.72)',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
     borderWidth: 1,
     borderColor: '#DFEAF3',
   },
   logoutIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     backgroundColor: '#FDECEC',
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoutText: {
-    marginLeft: 12,
-    fontSize: 17,
+    marginLeft: 8,
+    fontSize: 11,
     fontWeight: '700',
     color: '#1F2937',
   },
   logoutSubtext: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 12,
+    marginLeft: 6,
+    fontSize: 8,
     color: '#6B7280',
   },
   logoutArrow: {
-    marginLeft: 8,
+    marginLeft: 4,
   },
   bottomNav: {
     height: 60,

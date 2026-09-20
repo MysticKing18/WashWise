@@ -2,6 +2,10 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingVi
 import { Ionicons } from '@expo/vector-icons'
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router'
+import { Alert } from 'react-native'
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { auth } from '../firebase/firebase'
+import { getUserById } from '../database/services/userService'
 
 const login = () => {
   const router = useRouter()
@@ -9,9 +13,37 @@ const login = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
-  const handleLogin = () => {
-    // TODO: connect to Firebase Authentication here
-    console.log('Logging in with', email, password)
+  const handleLogin = async () => {
+    const trimmedEmail = email.trim().toLowerCase()
+
+    if (!trimmedEmail || !password) {
+      Alert.alert('Missing information', 'Please enter your email and password.')
+      return
+    }
+
+    try {
+      const credential = await signInWithEmailAndPassword(auth, trimmedEmail, password)
+      const customer = await getUserById(credential.user.uid)
+
+      if (!customer) {
+        await signOut(auth)
+        Alert.alert('Profile unavailable', 'Your customer profile could not be found.')
+        return
+      }
+
+      if (!customer.isActive) {
+        await signOut(auth)
+        Alert.alert('Account inactive', 'This customer account is currently inactive.')
+        return
+      }
+
+      router.replace('/insideapp/home')
+    } catch (error: any) {
+      const message = error?.code === 'auth/invalid-credential'
+        ? 'The email or password is incorrect.'
+        : 'Login failed. Please try again.'
+      Alert.alert('Login failed', message)
+    }
   }
 
   return (

@@ -2,6 +2,10 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingVi
 import { Ionicons } from '@expo/vector-icons'
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router'
+import { Alert } from 'react-native'
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth'
+import { auth } from '../firebase/firebase'
+import { createUser } from '../database/services/userService'
 
 const register = () => {
   const router = useRouter()
@@ -13,9 +17,41 @@ const register = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const handleRegister = () => {
-    // TODO: connect to Firebase Authentication here
-    console.log('Registering', fullName, phoneNumber, email, password, confirmPassword)
+  const handleRegister = async () => {
+    const trimmedName = fullName.trim()
+    const trimmedEmail = email.trim().toLowerCase()
+    const trimmedPhone = phoneNumber.trim()
+
+    if (!trimmedName || !trimmedEmail || !trimmedPhone || !password || !confirmPassword) {
+      Alert.alert('Missing information', 'Please complete all fields.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Password mismatch', 'Passwords do not match.')
+      return
+    }
+
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, trimmedEmail, password)
+      await createUser({
+        userId: credential.user.uid,
+        fullName: trimmedName,
+        email: trimmedEmail,
+        phone: trimmedPhone,
+      })
+      await signOut(auth)
+      Alert.alert('Account created', 'Your account is ready. Please log in.', [
+        { text: 'Continue', onPress: () => router.replace('/login') },
+      ])
+    } catch (error: any) {
+      const message = error?.code === 'auth/email-already-in-use'
+        ? 'That email is already registered.'
+        : error?.code === 'auth/weak-password'
+          ? 'Your password is too weak.'
+          : 'Registration failed. Please try again.'
+      Alert.alert('Registration failed', message)
+    }
   }
 
   return (

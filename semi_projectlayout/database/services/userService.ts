@@ -15,12 +15,28 @@ import { User } from "../models/User";
 
 const usersRef = collection(db, "users");
 
-export const createUser = async (user: User): Promise<void> => {
+export type NewUser = {
+  userId: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+};
+
+export type EditableUserProfile = {
+  fullName: string;
+  phone?: string;
+};
+
+export const createUser = async (user: NewUser): Promise<void> => {
   try {
     const userDoc = doc(db, "users", user.userId);
     await setDoc(userDoc, {
-      ...user,
-      createdAt: user.createdAt || serverTimestamp(),
+      userId: user.userId,
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone || "",
+      createdAt: serverTimestamp(),
+      isActive: true,
     });
   } catch (error) {
     console.error("Error creating user:", error);
@@ -58,7 +74,7 @@ export const getUsers = async (): Promise<User[]> => {
 
 export const updateUserProfile = async (
   userId: string,
-  updates: Partial<Omit<User, "userId" | "createdAt">>
+  updates: EditableUserProfile
 ): Promise<void> => {
   try {
     const userDoc = doc(db, "users", userId);

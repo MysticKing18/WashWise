@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
-import React, { useEffect, useRef } from 'react'
-import { Animated, Dimensions, Image, ImageSourcePropType, ScrollView, StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ImageStyle } from 'react-native'
+import React, { useEffect, useRef, useState } from 'react'
+import { Alert, Animated, Dimensions, Image, ImageSourcePropType, ScrollView, StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ImageStyle } from 'react-native'
+import { auth } from '../../firebase/firebase'
+import { getUserById } from '../../database/services/userService'
 
 const { height } = Dimensions.get('window')
 
@@ -42,6 +44,32 @@ const FloatingBubble = ({ source, size, style, duration = 4000, delay = 0, opaci
 
 const home = () => {
   const router = useRouter()
+  const [firstName, setFirstName] = useState('')
+
+  useEffect(() => {
+    const loadCustomerName = async () => {
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        router.replace('/login')
+        return
+      }
+
+      try {
+        const customer = await getUserById(currentUser.uid)
+        if (!customer || !customer.isActive) {
+          router.replace('/login')
+          return
+        }
+
+        const name = customer.fullName.trim().split(/\s+/)[0]
+        setFirstName(name)
+      } catch {
+        Alert.alert('Profile unavailable', 'Unable to load your customer profile.')
+      }
+    }
+
+    void loadCustomerName()
+  }, [router])
 
   return (
     <View style={styles.screen}>
@@ -110,7 +138,7 @@ const home = () => {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.greeting}>Hello, Luke!</Text>
+        <Text style={styles.greeting}>Hello, {firstName || '...'}!</Text>
         <Text style={styles.description}>Ready for a fresh laundry?</Text>
 
         <View style={styles.searchBox}>
@@ -206,11 +234,11 @@ const home = () => {
           <Ionicons name="receipt-outline" size={24} color="#64748B" />
           <Text style={styles.navLabel}>Order</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/branches')}>
           <Ionicons name="git-network-outline" size={24} color="#64748B" />
           <Text style={styles.navLabel}>Branches</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/profile')}>
           <Ionicons name="person-circle-outline" size={25} color="#64748B" />
           <Text style={styles.navLabel}>Profile</Text>
         </TouchableOpacity>

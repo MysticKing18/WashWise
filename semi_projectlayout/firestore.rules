@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isStaff() {
+      return isSignedIn() && exists(/databases/$(database)/documents/staffAccounts/$(request.auth.uid));
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.email is string
+        && request.resource.data.fullName is string
+        && !('password' in request.resource.data)
+        && !('temporaryPassword' in request.resource.data)
+        && !('confirmPassword' in request.resource.data);
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'phone'])
+        && !('password' in request.resource.data)
+        && !('temporaryPassword' in request.resource.data)
+        && !('confirmPassword' in request.resource.data);
+      allow delete: if false;
+    }
+
+    match /staffAccounts/{staffId} {
+      allow read: if isSignedIn() && (
+        isOwner(staffId) ||
+        isAdmin() ||
+        get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId == resource.data.branchId
+      );
+
+      allow create: if isAdmin()
+        && request.resource.data.staffId == staffId
+        && request.resource.data.role in ['staff', 'admin']
+        && request.resource.data.email is string
+        && request.resource.data.fullName is string
+        && request.resource.data.branchId is string
+        && !('password' in request.resource.data)
+        && !('temporaryPassword' in request.resource.data)
+        && !('confirmPassword' in request.resource.data);
+
+      allow update: if isAdmin() || (isOwner(staffId) && request.resource.data.role == resource.data.role);
+      allow delete: if false;
+    }
+
+    match /branches/{branchId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.customerId) ||
+        isAdmin() ||
+        isStaff() && resource.data.branchId == get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId
+      );
+
+      allow create: if isSignedIn() && isOwner(request.resource.data.customerId)
+        && request.resource.data.status == 'pending_dropoff';
+
+      allow update: if isSignedIn() && (
+        isOwner(resource.data.customerId) ||
+        isAdmin() ||
+        (isStaff() && resource.data.branchId == get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId)
+      );
+
+      allow delete: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.customerId) ||
+        isAdmin() ||
+        isStaff() && resource.data.branchId == get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId
+      );
+
+      allow create: if isAdmin() || (isStaff() && request.resource.data.staffId == request.auth.uid);
+      allow update: if isAdmin() || (isStaff() && resource.data.staffId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow update: if isSignedIn() && isOwner(resource.data.userId);
+      allow delete: if false;
+    }
+  }
+}

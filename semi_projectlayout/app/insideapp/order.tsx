@@ -108,11 +108,11 @@ const order = () => {
           <Ionicons name="receipt-outline" size={24} color="#2563EB" />
           <Text style={[styles.navLabel, styles.activeNavLabel]}>Order</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/branches')}>
           <Ionicons name="git-network-outline" size={24} color="#64748B" />
           <Text style={styles.navLabel}>Branches</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/profile')}>
           <Ionicons name="person-circle-outline" size={25} color="#64748B" />
           <Text style={styles.navLabel}>Profile</Text>
         </TouchableOpacity>
