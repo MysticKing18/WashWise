@@ -9,8 +9,9 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
-import { db } from "../../firebase/firebase";
+import { db, storage } from "../../firebase/firebase";
 import { User } from "../models/User";
 
 const usersRef = collection(db, "users");
@@ -26,6 +27,8 @@ export type EditableUserProfile = {
   fullName: string;
   phone?: string;
 };
+
+const profilePhotoPath = (userId: string) => `profilePictures/${userId}/profile.jpg`;
 
 export const createUser = async (user: NewUser): Promise<void> => {
   try {
@@ -81,6 +84,26 @@ export const updateUserProfile = async (
     await updateDoc(userDoc, updates);
   } catch (error) {
     console.error("Error updating user profile:", error);
+    throw error;
+  }
+};
+
+export const updateUserPhoto = async (userId: string, imageUri: string): Promise<string> => {
+  try {
+    const response = await fetch(imageUri);
+    if (!response.ok) {
+      throw new Error(`Unable to read selected image: ${response.status}`);
+    }
+    const imageBytes = await response.arrayBuffer();
+    const imageBytesArray = new Uint8Array(imageBytes);
+    const photoRef = ref(storage, profilePhotoPath(userId));
+    await uploadBytes(photoRef, imageBytesArray, { contentType: "image/jpeg" });
+    const photoURL = await getDownloadURL(photoRef);
+
+    await updateDoc(doc(db, "users", userId), { photoURL });
+    return photoURL;
+  } catch (error) {
+    console.error("Error updating user photo:", error);
     throw error;
   }
 };

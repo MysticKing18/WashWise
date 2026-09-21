@@ -28,7 +28,7 @@ service cloud.firestore {
         && !('confirmPassword' in request.resource.data);
       allow update: if isOwner(userId)
         && request.resource.data.userId == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'phone'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'phone', 'photoURL'])
         && !('password' in request.resource.data)
         && !('temporaryPassword' in request.resource.data)
         && !('confirmPassword' in request.resource.data);

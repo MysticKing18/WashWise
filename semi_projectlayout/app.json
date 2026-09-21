@@ -24,7 +24,13 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow WashWise to access your photos to update your profile picture."
+        }
+      ]
     ]
   }
 }

@@ -5,6 +5,7 @@ export interface User {
   fullName: string;
   email: string;
   phone?: string;
+  photoURL?: string;
   createdAt: Timestamp;
   isActive: boolean;
 }

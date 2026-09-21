@@ -3,6 +3,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -23,3 +24,6 @@ export const auth = getAuth(app);
 
 // Firestore Database
 export const db = getFirestore(app);
+
+// Firebase Storage
+export const storage = getStorage(app, "gs://project-application-c04e8.firebasestorage.app");

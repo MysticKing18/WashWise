@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
+import * as ImagePicker from 'expo-image-picker'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useRef } from 'react'
@@ -18,7 +19,7 @@ import {
 import { Alert } from 'react-native'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase/firebase'
-import { getUserById, updateUserProfile } from '../../database/services/userService'
+import { getUserById, updateUserPhoto, updateUserProfile } from '../../database/services/userService'
 import { User } from '../../database/models/User'
 
 const { height } = Dimensions.get('window')
@@ -64,6 +65,7 @@ const profile = () => {
   const [fullName, setFullName] = React.useState('')
   const [phone, setPhone] = React.useState('')
   const [isSaving, setIsSaving] = React.useState(false)
+  const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false)
 
   React.useEffect(() => {
     const loadProfile = async () => {
@@ -96,6 +98,39 @@ const profile = () => {
     setFullName(customer.fullName)
     setPhone(customer.phone || '')
     setIsEditing(true)
+  }
+
+  const handlePhotoPress = async () => {
+    const currentUser = auth.currentUser
+    if (!currentUser) {
+      router.replace('/login')
+      return
+    }
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Allow photo-library access to change your profile picture.')
+        return
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      })
+
+      if (result.canceled || !result.assets[0]) return
+
+      setIsUploadingPhoto(true)
+      const photoURL = await updateUserPhoto(currentUser.uid, result.assets[0].uri)
+      setCustomer((previous) => previous ? { ...previous, photoURL } : previous)
+    } catch {
+      Alert.alert('Photo update failed', 'Unable to select or upload your profile picture right now.')
+    } finally {
+      setIsUploadingPhoto(false)
+    }
   }
 
   const handleSave = async () => {
@@ -155,14 +190,18 @@ const profile = () => {
         </View>
 
         <View style={styles.card}>
-          <View style={styles.avatarWrap}>
+          <TouchableOpacity style={styles.avatarWrap} activeOpacity={0.85} onPress={handlePhotoPress} disabled={isUploadingPhoto}>
             <View style={styles.avatarBadge}>
-              <Ionicons name="person" size={28} color="#FFFFFF" />
+              {customer?.photoURL ? (
+                <Image source={{ uri: customer.photoURL }} style={styles.profilePhoto} />
+              ) : (
+                <Ionicons name="person" size={28} color="#FFFFFF" />
+              )}
             </View>
             <View style={styles.avatarCamera}>
-              <Ionicons name="camera" size={14} color="#FFFFFF" />
+              <Ionicons name={isUploadingPhoto ? 'hourglass-outline' : 'camera'} size={14} color="#FFFFFF" />
             </View>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.profileInfo}>
             {isEditing ? (
@@ -311,6 +350,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  profilePhoto: {
+    width: '100%',
+    height: '100%',
   },
   avatarCamera: {
     position: 'absolute',
