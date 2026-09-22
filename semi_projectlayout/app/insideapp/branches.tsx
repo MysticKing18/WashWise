@@ -1,392 +1,269 @@
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
-import React, { useEffect, useRef } from 'react'
+import { StatusBar } from 'expo-status-bar'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
-  Animated,
-  Dimensions,
-  ImageSourcePropType,
-  ImageStyle,
-  StyleProp,
+  Image,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Branch } from '../../database/models/Branch'
+import { subscribeToBranches } from '../../database/services/branchService'
+import { getBranchImage } from '../../utils/branchLocation'
 
-const { height } = Dimensions.get('window')
-
-type FloatingBubbleProps = {
-  source: ImageSourcePropType
-  size: number
-  style?: StyleProp<ImageStyle>
-  duration?: number
-  delay?: number
-  opacity?: number
+type BranchCardProps = {
+  branch: Branch
+  onSelect: () => void
+  popular?: boolean
 }
 
-const FloatingBubble = ({ source, size, style, duration = 4000, delay = 0, opacity = 0.85 }: FloatingBubbleProps) => {
-  const floatAnim = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, { toValue: 1, duration, delay, useNativeDriver: true }),
-        Animated.timing(floatAnim, { toValue: 0, duration, useNativeDriver: true }),
-      ])
-    )
-    loop.start()
-    return () => loop.stop()
-  }, [delay, duration, floatAnim])
-
-  const translateY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -14] })
-
+function BranchCard({ branch, onSelect, popular = false }: BranchCardProps) {
   return (
-    <Animated.Image
-      source={source}
-      resizeMode="contain"
-      style={[styles.backgroundBubble, { width: size, height: size, opacity, transform: [{ translateY }] }, style]}
-    />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Select ${branch.name}. ${branch.address}`}
+      accessibilityHint="Opens a new order for this branch."
+      onPress={onSelect}
+      style={({ pressed }) => [styles.branchCard, pressed && styles.pressed]}
+    >
+      <View style={styles.selectBranch}>
+        <View style={styles.branchPhotoWrap}>
+          <Image source={getBranchImage(branch)} resizeMode="cover" style={styles.branchPhoto} />
+        </View>
+
+        <View style={styles.branchInfo}>
+          <View style={styles.branchTitleRow}>
+            <Text style={styles.branchName}>{branch.name}</Text>
+            {popular && <View style={styles.popularBadge}><Text style={styles.popularText}>Popular</Text></View>}
+          </View>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={12} color="#5F6B7A" />
+            <Text style={styles.branchAddress} numberOfLines={2}>{branch.address}</Text>
+          </View>
+          <View style={styles.metaRow}>
+            <Ionicons name="business-outline" size={12} color="#5F6B7A" />
+            <Text style={styles.metaText}>{branch.location?.landmark || 'Laundry services'}</Text>
+            <View style={styles.openDot} />
+            <Text style={styles.openText}>Open</Text>
+          </View>
+        </View>
+        <Ionicons name="arrow-forward" size={20} color="#111111" />
+      </View>
+    </Pressable>
   )
 }
 
-type BranchCardProps = {
-  name?: string
-  address?: string
-  distance?: string
-  rating?: string
-  selected?: boolean
-  popular?: boolean
-  imageSource: any
-}
-
-const BranchCard = ({ name = '', address = '', distance = '', rating = '', selected = false, popular = false, imageSource }: BranchCardProps) => (
-  <TouchableOpacity
-    activeOpacity={0.9}
-    style={[styles.branchCard, selected && styles.selectedBranchCard]}
-  >
-    <View style={styles.branchImage}>
-      <Animated.Image
-        source={imageSource}
-        resizeMode="cover"
-        style={styles.branchImageSource}
-      />
-    </View>
-
-    <View style={styles.branchInfo}>
-      <View style={styles.branchNameRow}>
-        <Text style={styles.branchName}>{name || ' '}</Text>
-        {popular && <View style={styles.popularBadge}><Text style={styles.popularText}>Popular</Text></View>}
-      </View>
-
-      <View style={styles.locationRow}>
-        <Ionicons name="location-outline" size={12} color="#5F6B7A" />
-        <Text style={styles.branchAddress}>{address || ' '}</Text>
-      </View>
-
-      <View style={styles.metaRow}>
-        <View style={styles.metaGroup}>
-          <Ionicons name="navigate-outline" size={12} color="#4B5563" />
-          <Text style={styles.branchDistance}>{distance || ' '}</Text>
-        </View>
-        <View style={styles.metaSpacer} />
-        <View style={styles.openGroup}>
-          <Ionicons name="ellipse" size={8} color="#1CA65C" />
-          <Text style={styles.openLabel}>Open</Text>
-        </View>
-      </View>
-
-      <View style={styles.ratingRow}>
-        <Ionicons name="star" size={12} color="#F4B740" />
-        <Text style={styles.ratingText}>{rating || ' '}</Text>
-      </View>
-    </View>
-
-    <View style={styles.arrowWrap}>
-      <Ionicons name="chevron-forward" size={20} color="#7A869A" />
-    </View>
-  </TouchableOpacity>
-)
-
-const branches = () => {
+export default function Branches() {
   const router = useRouter()
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+
+  useEffect(() => {
+    setLoading(true)
+    setLoadError(false)
+    return subscribeToBranches(
+      (savedBranches) => {
+        setBranches(savedBranches)
+        setLoadError(false)
+        setLoading(false)
+      },
+      () => {
+        setLoadError(true)
+        setLoading(false)
+      },
+    )
+  }, [retryCount])
+
+  const filteredBranches = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase()
+    if (!query) return branches
+    return branches.filter((branch) => [
+      branch.name,
+      branch.address,
+      branch.location?.city,
+      branch.location?.province,
+      branch.location?.barangay,
+      branch.location?.landmark,
+    ].filter(Boolean).join(' ').toLocaleLowerCase().includes(query))
+  }, [branches, search])
+
+  const handleBack = () => {
+    if (router.canGoBack()) router.back()
+    else router.replace('/insideapp/home')
+  }
 
   return (
     <View style={styles.screen}>
-      <LinearGradient colors={['#BDE5FB', '#DFF3FD', '#FFFFFF']} style={StyleSheet.absoluteFill} />
-
-      <FloatingBubble source={require('../../assets/img/bubble1.png')} size={60} style={{ top: height * 0.06, left: -14 }} opacity={0.45} />
-      <FloatingBubble source={require('../../assets/img/bubble2.png')} size={40} style={{ top: height * 0.11, right: 12 }} duration={3400} opacity={0.5} />
-      <FloatingBubble source={require('../../assets/img/bubble2.png')} size={92} style={{ top: height * 0.18, right: -28 }} duration={4700} opacity={0.4} />
-      <FloatingBubble source={require('../../assets/img/bubble1.png')} size={28} style={{ top: height * 0.32, left: 22 }} duration={2500} opacity={0.55} />
-      <FloatingBubble source={require('../../assets/img/bubble2.png')} size={70} style={{ bottom: height * 0.28, left: -18 }} duration={4200} opacity={0.42} />
-      <FloatingBubble source={require('../../assets/img/bubble1.png')} size={88} style={{ bottom: height * 0.12, right: -18 }} duration={5200} opacity={0.38} />
-
-      <View style={styles.content}>
-        <View style={styles.topBar}>
-          <TouchableOpacity accessibilityLabel="Go back" onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={20} color="#0E6BB7" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Choose a Branch</Text>
-          <View style={styles.topBarSpacer} />
-        </View>
-
-        <Text style={styles.subtitle}>Select the most convenient location for you</Text>
-
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color="#7A869A" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search branch..."
-            placeholderTextColor="#7A869A"
-          />
-        </View>
-
-        <View style={styles.list}>
-          <BranchCard
-            name=""
-            address=""
-            distance=""
-            rating=""
-            selected
-            popular
-            imageSource={require('../../assets/img/Laundry1.png')}
-          />
-          <BranchCard
-            name=""
-            address=""
-            distance=""
-            rating=""
-            imageSource={require('../../assets/img/Laundry2.png')}
-          />
-          <BranchCard
-            name=""
-            address=""
-            distance=""
-            rating=""
-            imageSource={require('../../assets/img/Laundry3.png')}
-          />
-        </View>
+      <StatusBar style="dark" />
+      <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <LinearGradient colors={['#C8EAFB', '#F4FAFE', '#E3F4FF']} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+        <Image source={require('../../assets/img/bubble1.png')} style={[styles.bubble, styles.topBubble]} resizeMode="contain" />
+        <Image source={require('../../assets/img/bubble2.png')} style={[styles.bubble, styles.rightBubble]} resizeMode="contain" />
+        <Image source={require('../../assets/img/bubble2.png')} style={[styles.bubble, styles.bottomBubble]} resizeMode="contain" />
       </View>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/home')}>
-          <Ionicons name="home-outline" size={24} color="#64748B" />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/order')}>
-          <Ionicons name="receipt-outline" size={24} color="#64748B" />
-          <Text style={styles.navLabel}>Order</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/branches')}>
-          <Ionicons name="git-network-outline" size={24} color="#2563EB" />
-          <Text style={[styles.navLabel, styles.activeNavLabel]}>Branches</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/profile')}>
-          <Ionicons name="person-circle-outline" size={25} color="#64748B" />
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.topBar}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+              <Ionicons name="arrow-back" size={22} color="#0877C8" />
+            </Pressable>
+            <Text accessibilityRole="header" style={styles.title}>Choose a Branch</Text>
+            <View style={styles.topBarSpacer} />
+          </View>
+
+          <Text style={styles.subtitle}>Select the most convenient location for you</Text>
+
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={21} color="#688399" />
+            <TextInput
+              accessibilityLabel="Search branches by name or location"
+              value={search}
+              onChangeText={setSearch}
+              style={styles.searchInput}
+              placeholder="Search branch..."
+              placeholderTextColor="#748C9D"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {!!search && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setSearch('')} style={styles.clearButton}>
+                <Ionicons name="close-circle" size={20} color="#748C9D" />
+              </Pressable>
+            )}
+          </View>
+
+          {loading ? (
+            <View style={styles.stateCard}>
+              <Text style={styles.stateTitle}>Finding your branches…</Text>
+              <Text style={styles.stateMessage}>Getting the latest store information.</Text>
+            </View>
+          ) : loadError ? (
+            <View style={styles.stateCard} accessibilityRole="alert">
+              <Ionicons name="cloud-offline-outline" size={38} color="#688399" />
+              <Text style={styles.stateTitle}>Couldn’t load branches</Text>
+              <Text style={styles.stateMessage}>Check your connection and try again.</Text>
+              <Pressable accessibilityRole="button" onPress={() => setRetryCount((count) => count + 1)} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
+                <Text style={styles.retryLabel}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : filteredBranches.length === 0 ? (
+            <View style={styles.stateCard}>
+              <Ionicons name={branches.length ? 'search-outline' : 'storefront-outline'} size={38} color="#688399" />
+              <Text style={styles.stateTitle}>{branches.length ? 'No matching stores' : 'No branches available yet'}</Text>
+              <Text style={styles.stateMessage}>
+                {branches.length ? 'Try another store name, street, or landmark.' : 'Store locations will appear here when they are available.'}
+              </Text>
+              {!!search && (
+                <Pressable accessibilityRole="button" onPress={() => setSearch('')} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
+                  <Text style={styles.retryLabel}>Clear search</Text>
+                </Pressable>
+              )}
+            </View>
+          ) : (
+            filteredBranches.map((branch) => (
+              <BranchCard
+                key={branch.branchId}
+                branch={branch}
+                onSelect={() => router.push({ pathname: '/insideapp/order_choice', params: { branchId: branch.branchId } })}
+                popular={filteredBranches.indexOf(branch) === 0}
+              />
+            ))
+          )}
+
+          {!loading && !loadError && branches.length > 0 && (
+            <View style={styles.helpRow}>
+              <Ionicons name="information-circle-outline" size={17} color="#688399" />
+              <Text style={styles.helpText}>Select a store to start your order. Staff will confirm the final weight and price at drop-off.</Text>
+            </View>
+          )}
+        </ScrollView>
+
+        <SafeAreaView edges={['bottom']} style={styles.navSafeArea}>
+          <View style={styles.bottomNav}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Home" style={styles.navItem} onPress={() => router.replace('/insideapp/home')}>
+              <Ionicons name="home-outline" size={23} color="#788B9C" />
+              <Text style={styles.navLabel}>Home</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Orders" style={styles.navItem} onPress={() => router.replace('/insideapp/order')}>
+              <Ionicons name="receipt-outline" size={23} color="#788B9C" />
+              <Text style={styles.navLabel}>Order</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Branches" accessibilityState={{ selected: true }} style={styles.navItem}>
+              <View style={styles.activeNavIcon}><Ionicons name="storefront-outline" size={23} color="#0877C8" /></View>
+              <Text style={[styles.navLabel, styles.activeNavLabel]}>Branches</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Profile" style={styles.navItem} onPress={() => router.replace('/insideapp/profile')}>
+              <Ionicons name="person-circle-outline" size={25} color="#788B9C" />
+              <Text style={styles.navLabel}>Profile</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </SafeAreaView>
     </View>
   )
 }
 
-export default branches
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  backgroundBubble: { position: 'absolute' },
-  content: {
-    flex: 1,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 8,
-  },
-  topBar: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1F2937',
-    textAlign: 'center',
-  },
+  screen: { flex: 1, backgroundColor: '#E3F4FF' },
+  safeArea: { flex: 1 },
+  scrollView: { flex: 1 },
+  content: { width: '100%', maxWidth: 420, alignSelf: 'center', paddingHorizontal: 9, paddingTop: 4, paddingBottom: 12 },
+  bubble: { position: 'absolute', opacity: 0.35 },
+  topBubble: { width: 80, height: 80, top: 20, left: -38 },
+  rightBubble: { width: 130, height: 130, top: 90, right: -46 },
+  bottomBubble: { width: 145, height: 145, bottom: 74, left: -55 },
+  topBar: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  backButton: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   topBarSpacer: { width: 30 },
-  subtitle: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#5F6B7A',
-    marginBottom: 12,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderWidth: 1,
-    borderColor: '#D9E3EB',
-    paddingHorizontal: 12,
-    marginBottom: 14,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#111827',
-    paddingVertical: 0,
-  },
-  list: {
-    marginTop: 6,
-  },
-  branchCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.78)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E4EAF0',
-    padding: 12,
-    marginBottom: 12,
-    shadowColor: '#B5CAEA',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  selectedBranchCard: {
-    borderColor: '#A958FF',
-    borderWidth: 2,
-    shadowColor: '#9F6BFF',
-    shadowOpacity: 0.18,
-  },
-  branchImage: {
-    width: 82,
-    height: 78,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#DDEEFF',
-    borderWidth: 1,
-    borderColor: '#D9EAF8',
-  },
-  branchImageSource: {
-    width: '100%',
-    height: '100%',
-  },
-  branchInfo: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  branchNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  branchName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  popularBadge: {
-    backgroundColor: '#D5E3FF',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  popularText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#2E5BDB',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  branchAddress: {
-    marginLeft: 4,
-    fontSize: 12,
-    color: '#4B5563',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  metaGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  branchDistance: {
-    marginLeft: 4,
-    fontSize: 12,
-    color: '#374151',
-    fontWeight: '600',
-  },
-  metaSpacer: {
-    width: 8,
-  },
-  openGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  openLabel: {
-    marginLeft: 4,
-    fontSize: 12,
-    color: '#1F9D61',
-    fontWeight: '600',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 5,
-  },
-  ratingText: {
-    marginLeft: 4,
-    fontSize: 11,
-    color: '#374151',
-    fontWeight: '700',
-  },
-  arrowWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bottomNav: {
-    height: 60,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderTopWidth: 1,
-    borderTopColor: '#D9E6EE',
-  },
-  navItem: {
-    minWidth: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navLabel: {
-    marginTop: 3,
-    fontSize: 10,
-    color: '#64748B',
-  },
-  activeNavLabel: {
-    color: '#2563EB',
-    fontWeight: '700',
-  },
+  title: { flex: 1, fontSize: 14, fontWeight: '700', color: '#075191', textAlign: 'left' },
+  subtitle: { fontSize: 9, lineHeight: 13, color: '#5F6B7A', marginBottom: 8 },
+  searchBox: { height: 27, flexDirection: 'row', alignItems: 'center', borderRadius: 5, borderWidth: 1, borderColor: '#C5D8E5', paddingHorizontal: 7, backgroundColor: 'rgba(255,255,255,0.94)' },
+  searchInput: { flex: 1, minWidth: 0, marginLeft: 6, fontSize: 8, color: '#173D5A', paddingVertical: 4 },
+  clearButton: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  branchCard: { height: 80, marginTop: 7, flexDirection: 'row', alignItems: 'center', borderRadius: 7, padding: 5, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D2DCE3', shadowColor: '#6B8798', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  selectBranch: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  branchPhotoWrap: { width: 67, height: 62, overflow: 'hidden', borderRadius: 5, backgroundColor: '#D5E8F3' },
+  branchPhoto: { width: '100%', height: '100%' },
+  branchInfo: { flex: 1, minWidth: 0, paddingHorizontal: 7 },
+  branchTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  branchName: { flex: 1, fontSize: 10, lineHeight: 13, fontWeight: '800', color: '#075191' },
+  popularBadge: { borderRadius: 5, backgroundColor: '#536CFF', paddingHorizontal: 5, paddingVertical: 1 },
+  popularText: { fontSize: 6, fontWeight: '700', color: '#FFFFFF' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  branchAddress: { flex: 1, fontSize: 7, lineHeight: 9, color: '#5F6B7A' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
+  metaText: { flexShrink: 1, fontSize: 7, color: '#5F6B7A' },
+  openDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#1CA65C', marginLeft: 2 },
+  openText: { fontSize: 7, fontWeight: '700', color: '#1CA65C' },
+  stateCard: { backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 8, paddingHorizontal: 24, paddingVertical: 25, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: '#D8EAF5' },
+  stateTitle: { fontSize: 17, lineHeight: 24, fontWeight: '700', color: '#244D6A', marginTop: 14, textAlign: 'center' },
+  stateMessage: { fontSize: 13, lineHeight: 20, color: '#688399', marginTop: 6, textAlign: 'center' },
+  retryButton: { minHeight: 44, justifyContent: 'center', backgroundColor: '#0877C8', paddingHorizontal: 22, borderRadius: 12, marginTop: 18 },
+  retryLabel: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  helpRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: 4, marginTop: 1 },
+  helpText: { flex: 1, fontSize: 12, lineHeight: 18, color: '#688399' },
+  navSafeArea: { backgroundColor: 'rgba(255,255,255,0.97)', borderTopWidth: 1, borderTopColor: '#D8EAF5' },
+  bottomNav: { minHeight: 58, width: '100%', maxWidth: 420, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingTop: 4, paddingBottom: 3 },
+  navItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
+  activeNavIcon: { width: 46, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#E7F5FE' },
+  navLabel: { fontSize: 10, color: '#788B9C', marginTop: 3 },
+  activeNavLabel: { color: '#0877C8', fontWeight: '700' },
+  pressed: { opacity: 0.72 },
 })

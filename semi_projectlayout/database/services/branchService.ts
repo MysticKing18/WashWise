@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -11,6 +12,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase";
+import { BRANCH_CATALOG } from "../branchCatalog";
 import { Branch } from "../models/Branch";
 
 const branchesRef = collection(db, "branches");
@@ -70,6 +72,21 @@ export const getActiveBranches = async (): Promise<Branch[]> => {
     throw error;
   }
 };
+
+export const subscribeToBranches = (
+  onChange: (branches: Branch[]) => void,
+  onError: (error: Error) => void,
+): (() => void) => onSnapshot(
+  query(branchesRef, where("isActive", "==", true)),
+  (snapshot) => {
+    const savedBranches = snapshot.docs.map((docSnap) => ({
+        ...(docSnap.data() as Branch),
+        branchId: docSnap.id,
+      }));
+    onChange(savedBranches.length ? savedBranches : BRANCH_CATALOG);
+  },
+  onError,
+);
 
 export const updateBranch = async (
   branchId: string,

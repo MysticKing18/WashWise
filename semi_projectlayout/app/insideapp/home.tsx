@@ -177,7 +177,7 @@ const home = () => {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Laundry Stores</Text>
-          <TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all laundry stores" onPress={() => router.push('/insideapp/branches')}>
             <Text style={styles.link}>View All</Text>
           </TouchableOpacity>
         </View>

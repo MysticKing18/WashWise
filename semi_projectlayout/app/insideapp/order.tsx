@@ -93,7 +93,7 @@ const order = () => {
             <Ionicons name="location-outline" size={28} color="#0877D1" />
           </View>
           <Text style={styles.serviceMessage}>Please select a branch{`\n`}or main first to proceed{`\n`}with your order.</Text>
-          <TouchableOpacity style={styles.pickButton} activeOpacity={0.85} onPress={() => router.push('/insideapp/home')}>
+          <TouchableOpacity style={styles.pickButton} activeOpacity={0.85} onPress={() => router.push('/insideapp/branches')}>
             <Text style={styles.pickButtonText}>Pick Branch / Main</Text>
           </TouchableOpacity>
         </View>
