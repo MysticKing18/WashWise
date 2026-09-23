@@ -67,8 +67,7 @@ export default function OrderChoice() {
   }
 
   const handleBack = () => {
-    if (router.canGoBack()) router.back()
-    else router.replace('/insideapp/order')
+    router.replace('/insideapp/home')
   }
 
   return (
@@ -98,7 +97,7 @@ export default function OrderChoice() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.topBar}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Go back to home" onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
                 <Ionicons name="arrow-back" size={23} color="#0877C8" />
               </Pressable>
               <Text accessibilityRole="header" style={styles.title}>New Order</Text>

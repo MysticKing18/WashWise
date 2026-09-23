@@ -83,7 +83,11 @@ export const subscribeToBranches = (
         ...(docSnap.data() as Branch),
         branchId: docSnap.id,
       }));
-    onChange(savedBranches.length ? savedBranches : BRANCH_CATALOG);
+    const savedBranchIds = new Set(savedBranches.map((branch) => branch.branchId));
+    onChange([
+      ...savedBranches,
+      ...BRANCH_CATALOG.filter((branch) => !savedBranchIds.has(branch.branchId)),
+    ]);
   },
   onError,
 );

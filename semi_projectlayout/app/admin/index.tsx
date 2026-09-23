@@ -1,14 +1,46 @@
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native'
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Alert } from 'react-native'
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router'
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
+import { auth, db } from '../../firebase/firebase'
+
+const ADMIN_EMAIL = 'kinglukecroewyn@gmail.com'
 
 const login = () => {
   const router = useRouter()
   const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleLogin = () => {
-    // TODO: connect to Firebase Authentication here (admin password check)
-    console.log('Admin logging in with', password)
+  const handleLogin = async () => {
+    if (!password) {
+      Alert.alert('Missing password', 'Enter your admin password to continue.')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const credential = await signInWithEmailAndPassword(auth, ADMIN_EMAIL, password)
+      const staffSnapshot = await getDoc(doc(db, 'staffAccounts', credential.user.uid))
+      const staff = staffSnapshot.data() as { role?: string; isActive?: boolean } | undefined
+
+      if (!staffSnapshot.exists() || staff?.role !== 'admin' || staff.isActive !== true) {
+        await signOut(auth)
+        Alert.alert('Access denied', 'This account is not configured as an active admin.')
+        return
+      }
+
+      router.replace('/admin/home')
+    } catch (error: any) {
+      const message = error?.code === 'auth/invalid-credential'
+        ? 'The admin password is incorrect.'
+        : error?.code === 'auth/too-many-requests'
+          ? 'Too many attempts. Try again later.'
+          : 'Unable to log in. Check your connection and Firebase setup.'
+      Alert.alert('Admin login failed', message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -40,8 +72,8 @@ const login = () => {
             />
           </View>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-            <Text style={styles.primaryButtonText}>Log in</Text>
+          <TouchableOpacity disabled={isLoading} style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={() => void handleLogin()}>
+            <Text style={styles.primaryButtonText}>{isLoading ? 'Logging in...' : 'Log in'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -120,5 +152,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  disabledButton: {
+    opacity: 0.65,
   },
 })

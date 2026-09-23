@@ -1,103 +1,226 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function owner(uid) {
+      return signedIn() && request.auth.uid == uid;
     }
-
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.role == 'admin';
+    function activeStaff() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/staffAccounts/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.isActive == true
+        && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.role in ['staff', 'admin'];
     }
-
-    function isStaff() {
-      return isSignedIn() && exists(/databases/$(database)/documents/staffAccounts/$(request.auth.uid));
+    function admin() {
+      return activeStaff()
+        && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.role == 'admin';
+    }
+    function staffFor(branchId) {
+      return activeStaff()
+        && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId == branchId;
+    }
+    function manages(branchId) {
+      return admin() || staffFor(branchId);
+    }
+    function activeBranch(branchId) {
+      return branchId is string
+        && exists(/databases/$(database)/documents/branches/$(branchId))
+        && get(/databases/$(database)/documents/branches/$(branchId)).data.isActive == true;
+    }
+    function readsOrder(orderId) {
+      let order = get(/databases/$(database)/documents/orders/$(orderId)).data;
+      return owner(order.customerId) || manages(order.branchId);
+    }
+    function validUser(d, uid) {
+      return d.keys().hasAll(['userId', 'fullName', 'email', 'createdAt', 'isActive'])
+        && d.keys().hasOnly(['userId', 'fullName', 'email', 'phone', 'photoURL', 'createdAt', 'isActive'])
+        && d.userId == uid
+        && d.fullName is string && d.email is string
+        && d.get('phone', '') is string && d.get('photoURL', '') is string
+        && d.createdAt is timestamp && d.isActive is bool;
+    }
+    function validLocation(d) {
+      return d is map
+        && d.keys().hasAll(['city', 'province'])
+        && d.keys().hasOnly(['city', 'province', 'barangay', 'landmark', 'mapQuery'])
+        && d.city is string && d.province is string
+        && d.get('barangay', '') is string
+        && d.get('landmark', '') is string
+        && d.get('mapQuery', '') is string;
+    }
+    function validBranch(d, id) {
+      return d.keys().hasAll(['branchId', 'name', 'address', 'regularPrice', 'rushPrice', 'isActive', 'createdAt', 'updatedAt'])
+        && d.keys().hasOnly(['branchId', 'name', 'address', 'photoUrl', 'location', 'contactPhone', 'regularPrice', 'rushPrice', 'isActive', 'createdAt', 'updatedAt'])
+        && d.branchId == id
+        && d.name is string && d.address is string
+        && d.get('photoUrl', '') is string && d.get('contactPhone', '') is string
+        && (!('location' in d) || validLocation(d.location))
+        && d.regularPrice is number && d.regularPrice > 0
+        && d.rushPrice is number && d.rushPrice > 0
+        && d.isActive is bool
+        && d.createdAt is timestamp && d.updatedAt is timestamp
+        && d.updatedAt >= d.createdAt;
+    }
+    function validStaff(d, uid) {
+      return d.keys().hasAll(['staffId', 'fullName', 'email', 'role', 'branchId', 'createdBy', 'createdAt', 'isActive'])
+        && d.keys().hasOnly(['staffId', 'fullName', 'email', 'role', 'branchId', 'createdBy', 'createdAt', 'isActive'])
+        && d.staffId == uid
+        && d.fullName is string && d.email is string
+        && d.role in ['staff', 'admin']
+        && d.branchId is string
+        && exists(/databases/$(database)/documents/branches/$(d.branchId))
+        && d.createdBy is string && d.createdAt is timestamp
+        && d.isActive is bool;
+    }
+    function validOrder(d, id) {
+      return d.keys().hasAll(['customerId', 'branchId', 'status', 'createdAt', 'updatedAt'])
+        && d.keys().hasOnly(['orderId', 'customerId', 'branchId', 'serviceType', 'priority', 'laundryDetails', 'estimatedPrice', 'confirmedPrice', 'status', 'createdAt', 'updatedAt', 'cancelReason'])
+        && d.get('orderId', id) == id
+        && d.customerId is string && d.branchId is string
+        && d.get('serviceType', '') is string
+        && d.get('priority', 'regular') in ['regular', 'rush']
+        && d.get('laundryDetails', '') is string
+        && d.get('estimatedPrice', 0) is number && d.get('estimatedPrice', 0) >= 0
+        && d.get('confirmedPrice', 0) is number && d.get('confirmedPrice', 0) >= 0
+        && d.get('cancelReason', '') is string
+        && d.status in ['pending_dropoff', 'received', 'washing', 'drying', 'ready', 'completed', 'cancelled']
+        && d.createdAt is timestamp && d.updatedAt is timestamp;
+    }
+    function validTransition(before, after) {
+      return before == after
+        || (before == 'pending_dropoff' && after in ['received', 'cancelled'])
+        || (before == 'received' && after in ['washing', 'cancelled'])
+        || (before == 'washing' && after == 'drying')
+        || (before == 'drying' && after == 'ready')
+        || (before == 'ready' && after == 'completed');
+    }
+    function customerCancellation() {
+      return owner(resource.data.customerId)
+        && resource.data.status == 'pending_dropoff'
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'cancelReason', 'updatedAt']);
+    }
+    function staffOrderUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      return manages(before.branchId)
+        && !(before.status in ['completed', 'cancelled'])
+        && validTransition(before.status, after.status)
+        && (after.status in ['pending_dropoff', 'cancelled'] || after.get('confirmedPrice', 0) > 0)
+        && (
+          (before.status in ['pending_dropoff', 'received']
+            && changed.hasOnly(['serviceType', 'priority', 'laundryDetails', 'estimatedPrice', 'confirmedPrice', 'status', 'updatedAt', 'cancelReason']))
+          || changed.hasOnly(['status', 'updatedAt', 'cancelReason'])
+        );
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
-        && request.resource.data.userId == userId
-        && request.resource.data.email is string
-        && request.resource.data.fullName is string
-        && !('password' in request.resource.data)
-        && !('temporaryPassword' in request.resource.data)
-        && !('confirmPassword' in request.resource.data);
-      allow update: if isOwner(userId)
-        && request.resource.data.userId == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'phone', 'photoURL'])
-        && !('password' in request.resource.data)
-        && !('temporaryPassword' in request.resource.data)
-        && !('confirmPassword' in request.resource.data);
+      allow read: if owner(userId) || admin();
+      allow create: if owner(userId)
+        && validUser(request.resource.data, userId)
+        && request.resource.data.isActive == true
+        && request.resource.data.createdAt == request.time;
+      allow update: if owner(userId)
+        && validUser(request.resource.data, userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fullName', 'phone', 'photoURL']);
       allow delete: if false;
     }
 
+    // The first admin is added manually in the Firebase console.
+    // Document ID and staffId must both equal that account's Authentication UID.
     match /staffAccounts/{staffId} {
-      allow read: if isSignedIn() && (
-        isOwner(staffId) ||
-        isAdmin() ||
-        get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId == resource.data.branchId
-      );
-
-      allow create: if isAdmin()
-        && request.resource.data.staffId == staffId
-        && request.resource.data.role in ['staff', 'admin']
-        && request.resource.data.email is string
-        && request.resource.data.fullName is string
-        && request.resource.data.branchId is string
-        && !('password' in request.resource.data)
-        && !('temporaryPassword' in request.resource.data)
-        && !('confirmPassword' in request.resource.data);
-
-      allow update: if isAdmin() || (isOwner(staffId) && request.resource.data.role == resource.data.role);
+      allow read: if owner(staffId) || admin() || staffFor(resource.data.branchId);
+      allow create: if admin()
+        && validStaff(request.resource.data, staffId)
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if admin()
+        && validStaff(request.resource.data, staffId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fullName', 'email', 'role', 'branchId', 'isActive']);
       allow delete: if false;
     }
 
     match /branches/{branchId} {
-      allow read: if isSignedIn();
-      allow create, update: if isAdmin();
+      allow read: if signedIn();
+      allow create: if admin() && validBranch(request.resource.data, branchId);
+      allow update: if admin()
+        && validBranch(request.resource.data, branchId)
+        && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if false;
     }
 
     match /orders/{orderId} {
-      allow read: if isSignedIn() && (
-        isOwner(resource.data.customerId) ||
-        isAdmin() ||
-        isStaff() && resource.data.branchId == get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId
-      );
-
-      allow create: if isSignedIn() && isOwner(request.resource.data.customerId)
-        && request.resource.data.status == 'pending_dropoff';
-
-      allow update: if isSignedIn() && (
-        isOwner(resource.data.customerId) ||
-        isAdmin() ||
-        (isStaff() && resource.data.branchId == get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId)
-      );
-
+      allow read: if owner(resource.data.customerId) || manages(resource.data.branchId);
+      allow create: if signedIn()
+        && validOrder(request.resource.data, orderId)
+        && owner(request.resource.data.customerId)
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true
+        && activeBranch(request.resource.data.branchId)
+        && request.resource.data.status == 'pending_dropoff'
+        && !request.resource.data.keys().hasAny(['confirmedPrice', 'cancelReason'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if signedIn()
+        && validOrder(request.resource.data, orderId)
+        && request.resource.data.updatedAt == request.time
+        && (customerCancellation() || staffOrderUpdate());
       allow delete: if false;
     }
 
     match /payments/{paymentId} {
-      allow read: if isSignedIn() && (
-        isOwner(resource.data.customerId) ||
-        isAdmin() ||
-        isStaff() && resource.data.branchId == get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.branchId
-      );
-
-      allow create: if isAdmin() || (isStaff() && request.resource.data.staffId == request.auth.uid);
-      allow update: if isAdmin() || (isStaff() && resource.data.staffId == request.auth.uid);
-      allow delete: if false;
+      function validPayment() {
+        let d = request.resource.data;
+        let order = get(/databases/$(database)/documents/orders/$(d.orderId)).data;
+        return d.keys().hasAll(['orderId', 'customerId', 'staffId', 'branchId', 'amountCollected', 'status', 'verifiedAt'])
+          && d.keys().hasOnly(['paymentId', 'orderId', 'customerId', 'staffId', 'branchId', 'amountCollected', 'status', 'verifiedAt'])
+          && d.get('paymentId', paymentId) == paymentId
+          && d.orderId is string
+          && d.customerId == order.customerId && d.branchId == order.branchId
+          && d.staffId == request.auth.uid
+          && manages(order.branchId)
+          && order.status == 'ready'
+          && d.amountCollected is number && d.amountCollected > 0
+          && d.amountCollected == order.confirmedPrice
+          && d.status == 'verified' && d.verifiedAt == request.time;
+      }
+      allow read: if owner(resource.data.customerId)
+        || manages(resource.data.branchId)
+        || (activeStaff() && resource.data.staffId == request.auth.uid)
+        || readsOrder(resource.data.orderId);
+      allow create: if activeStaff() && validPayment();
+      allow update, delete: if false;
     }
 
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-      allow update: if isSignedIn() && isOwner(resource.data.userId);
+      function validNotification() {
+        let d = request.resource.data;
+        let order = get(/databases/$(database)/documents/orders/$(d.orderId)).data;
+        return d.keys().hasAll(['userId', 'orderId', 'type', 'message', 'isRead', 'createdAt'])
+          && d.keys().hasOnly(['notificationId', 'userId', 'orderId', 'type', 'message', 'isRead', 'createdAt'])
+          && d.get('notificationId', notificationId) == notificationId
+          && d.orderId is string && d.userId == order.customerId
+          && manages(order.branchId)
+          && d.type in ['order_ready', 'order_update']
+          && (d.type != 'order_ready' || order.status == 'ready')
+          && d.message is string
+          && d.isRead == false && d.createdAt == request.time;
+      }
+      allow read: if owner(resource.data.userId);
+      allow create: if activeStaff() && validNotification();
+      allow update: if owner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool;
       allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
+

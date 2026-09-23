@@ -1,0 +1,1 @@
+Reference retained; cover paragraphs 0-23 unchanged. A4, one-inch margins, Arial 12 body. Workflow-authorized clarifications only in original wording. Proposed timeline and tests; unsigned acceptance. All original package parts preserved during OOXML authoring. Native Word used for field refresh and visual QA because bundled runtime unavailable.

@@ -97,8 +97,7 @@ export default function Branches() {
   }, [branches, search])
 
   const handleBack = () => {
-    if (router.canGoBack()) router.back()
-    else router.replace('/insideapp/home')
+    router.replace('/insideapp/home')
   }
 
   return (
@@ -181,7 +180,7 @@ export default function Branches() {
               <BranchCard
                 key={branch.branchId}
                 branch={branch}
-                onSelect={() => router.push({ pathname: '/insideapp/order_choice', params: { branchId: branch.branchId } })}
+                onSelect={() => router.push({ pathname: '/insideapp/order_details', params: { branchId: branch.branchId } })}
                 popular={filteredBranches.indexOf(branch) === 0}
               />
             ))
@@ -198,19 +197,19 @@ export default function Branches() {
         <SafeAreaView edges={['bottom']} style={styles.navSafeArea}>
           <View style={styles.bottomNav}>
             <Pressable accessibilityRole="button" accessibilityLabel="Home" style={styles.navItem} onPress={() => router.replace('/insideapp/home')}>
-              <Ionicons name="home-outline" size={23} color="#788B9C" />
+              <Ionicons name="home" size={24} color="#64748B" />
               <Text style={styles.navLabel}>Home</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Orders" style={styles.navItem} onPress={() => router.replace('/insideapp/order')}>
-              <Ionicons name="receipt-outline" size={23} color="#788B9C" />
+              <Ionicons name="receipt-outline" size={24} color="#64748B" />
               <Text style={styles.navLabel}>Order</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Branches" accessibilityState={{ selected: true }} style={styles.navItem}>
-              <View style={styles.activeNavIcon}><Ionicons name="storefront-outline" size={23} color="#0877C8" /></View>
+              <Ionicons name="git-network-outline" size={24} color="#2563EB" />
               <Text style={[styles.navLabel, styles.activeNavLabel]}>Branches</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Profile" style={styles.navItem} onPress={() => router.replace('/insideapp/profile')}>
-              <Ionicons name="person-circle-outline" size={25} color="#788B9C" />
+              <Ionicons name="person-circle-outline" size={25} color="#64748B" />
               <Text style={styles.navLabel}>Profile</Text>
             </Pressable>
           </View>
@@ -263,7 +262,7 @@ const styles = StyleSheet.create({
   bottomNav: { minHeight: 58, width: '100%', maxWidth: 420, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingTop: 4, paddingBottom: 3 },
   navItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
   activeNavIcon: { width: 46, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#E7F5FE' },
-  navLabel: { fontSize: 10, color: '#788B9C', marginTop: 3 },
-  activeNavLabel: { color: '#0877C8', fontWeight: '700' },
+  navLabel: { fontSize: 10, color: '#64748B', marginTop: 3 },
+  activeNavLabel: { color: '#2563EB', fontWeight: '700' },
   pressed: { opacity: 0.72 },
 })

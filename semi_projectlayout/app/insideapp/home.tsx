@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useRef, useState } from 'react'
-import { Alert, Animated, Dimensions, Image, ImageSourcePropType, ScrollView, StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ImageStyle } from 'react-native'
+import { Alert, Animated, Dimensions, Image, ImageSourcePropType, Linking, ScrollView, StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ImageStyle } from 'react-native'
 import { auth } from '../../firebase/firebase'
+import { BRANCH_CATALOG } from '../../database/branchCatalog'
 import { getUserById } from '../../database/services/userService'
+import { getBranchImage } from '../../utils/branchLocation'
 
 const { height } = Dimensions.get('window')
 
@@ -45,6 +47,13 @@ const FloatingBubble = ({ source, size, style, duration = 4000, delay = 0, opaci
 const home = () => {
   const router = useRouter()
   const [firstName, setFirstName] = useState('')
+  const mainBranch = BRANCH_CATALOG[0]
+
+  const openMainBranchMap = async () => {
+    const query = mainBranch.location?.mapQuery || `${mainBranch.name}, ${mainBranch.address}`
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+    if (await Linking.canOpenURL(url)) await Linking.openURL(url)
+  }
 
   useEffect(() => {
     const loadCustomerName = async () => {
@@ -182,18 +191,24 @@ const home = () => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.branchCard} activeOpacity={0.85}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="View Main Branch details"
+          style={styles.branchCard}
+          activeOpacity={0.85}
+          onPress={() => router.push({ pathname: '/insideapp/order_details', params: { branchId: mainBranch.branchId } })}
+        >
           <View style={styles.branchImagePlaceholder}>
-            <Ionicons name="business-outline" size={28} color="#9CA3AF" />
+            <Image source={getBranchImage(mainBranch)} style={styles.branchImage} resizeMode="cover" />
           </View>
           <View style={styles.branchDetails}>
             <Text style={styles.branchName}>Main Branch</Text>
             <View style={styles.branchAddressRow}>
               <Ionicons name="location-outline" size={12} color="#6B7280" />
-              <Text style={styles.branchAddress}>Apokon, Tagum City</Text>
+              <Text style={styles.branchAddress} numberOfLines={1}>{mainBranch.address}</Text>
             </View>
             <View style={styles.branchMeta}>
-              <Text style={styles.branchDistance}>1.2 km</Text>
+              <Text style={styles.branchDistance}>{mainBranch.location?.landmark}</Text>
               <View style={styles.openDot} />
               <Text style={styles.openLabel}>Open</Text>
             </View>
@@ -203,7 +218,7 @@ const home = () => {
 
         <View style={styles.mapPlaceholder}>
           <Ionicons name="map-outline" size={30} color="#9CA3AF" />
-          <TouchableOpacity style={styles.mapButton}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View Main Branch on map" style={styles.mapButton} onPress={() => void openMainBranchMap()}>
             <Text style={styles.mapButtonText}>View on Map</Text>
           </TouchableOpacity>
         </View>
@@ -346,7 +361,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 12,
   },
-  branchImagePlaceholder: { width: 68, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderRadius: 8 },
+  branchImagePlaceholder: { width: 68, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderRadius: 8, overflow: 'hidden' },
+  branchImage: { width: '100%', height: '100%' },
   branchDetails: { flex: 1, marginLeft: 10 },
   branchName: { fontSize: 13, fontWeight: '700', color: '#111827' },
   branchAddressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 3 },

@@ -21,6 +21,7 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase/firebase'
 import { getUserById, updateUserPhoto, updateUserProfile } from '../../database/services/userService'
 import { User } from '../../database/models/User'
+import { LogoutConfirmModal } from '../../components/LogoutConfirmModal'
 
 const { height } = Dimensions.get('window')
 
@@ -66,6 +67,8 @@ const profile = () => {
   const [phone, setPhone] = React.useState('')
   const [isSaving, setIsSaving] = React.useState(false)
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false)
+  const [showLogout, setShowLogout] = React.useState(false)
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false)
 
   React.useEffect(() => {
     const loadProfile = async () => {
@@ -156,11 +159,15 @@ const profile = () => {
   }
 
   const handleLogout = async () => {
+    setIsLoggingOut(true)
     try {
       await signOut(auth)
       router.replace('/login')
     } catch {
       Alert.alert('Logout failed', 'Unable to log out right now.')
+    } finally {
+      setIsLoggingOut(false)
+      setShowLogout(false)
     }
   }
 
@@ -238,7 +245,7 @@ const profile = () => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.9} onPress={handleLogout}>
+        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.9} onPress={() => setShowLogout(true)}>
           <View style={styles.logoutIconWrap}>
             <Ionicons name="log-out-outline" size={20} color="#F15B5B" />
           </View>
@@ -247,6 +254,8 @@ const profile = () => {
           <Ionicons name="chevron-forward" size={18} color="#53779A" style={styles.logoutArrow} />
         </TouchableOpacity>
       </View>
+
+      <LogoutConfirmModal visible={showLogout} loading={isLoggingOut} onCancel={() => setShowLogout(false)} onConfirm={() => void handleLogout()} />
 
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={() => router.replace('/insideapp/home')}>

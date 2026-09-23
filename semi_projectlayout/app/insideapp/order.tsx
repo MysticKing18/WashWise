@@ -72,7 +72,7 @@ const order = () => {
 
       <View style={styles.content}>
         <View style={styles.topBar}>
-          <TouchableOpacity accessibilityLabel="Go back" onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity accessibilityLabel="Go back to home" onPress={() => router.replace('/insideapp/home')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#0E6BB7" />
           </TouchableOpacity>
           <Text style={styles.title}>New Order</Text>
