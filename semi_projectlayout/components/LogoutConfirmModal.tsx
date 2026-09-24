@@ -45,3 +45,12 @@ const styles = StyleSheet.create({
   logoutText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   pressed: { opacity: 0.72 },
 })
+
+
+
+
+
+
+
+
+
