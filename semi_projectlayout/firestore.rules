@@ -90,7 +90,7 @@ service cloud.firestore {
     }
     function validTransition(before, after) {
       return before == after
-        || (before == 'pending_dropoff' && after in ['received', 'washing', 'cancelled'])
+        || (before == 'pending_dropoff' && after in ['received', 'cancelled'])
         || (before == 'received' && after in ['washing', 'cancelled'])
         || (before == 'washing' && after == 'completed');
     }
@@ -117,7 +117,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if owner(userId) || admin();
+      allow read: if owner(userId) || activeStaff();
       allow create: if owner(userId)
         && validUser(request.resource.data, userId)
         && request.resource.data.isActive == true
@@ -182,7 +182,7 @@ service cloud.firestore {
           && d.customerId == order.customerId && d.branchId == order.branchId
           && d.staffId == request.auth.uid
           && manages(order.branchId)
-          && order.status == 'completed'
+          && order.status == 'received'
           && d.amountCollected is number && d.amountCollected > 0
           && d.amountCollected == order.confirmedPrice
           && d.status == 'verified' && d.verifiedAt == request.time;
@@ -205,7 +205,7 @@ service cloud.firestore {
           && d.orderId is string && d.userId == order.customerId
           && manages(order.branchId)
           && d.type in ['order_ready', 'order_update']
-          && (d.type != 'order_ready' || order.status == 'ready')
+          && (d.type != 'order_ready' || order.status == 'completed')
           && d.message is string
           && d.isRead == false && d.createdAt == request.time;
       }

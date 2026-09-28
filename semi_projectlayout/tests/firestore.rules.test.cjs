@@ -64,9 +64,9 @@ const order = (status = "pending_dropoff") => ({
 const newOrder = () => ({ customerId: "customer", branchId: "branch-a",
   priority: "regular", estimatedPrice: 150, status: "pending_dropoff",
   createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-const payment = () => ({ orderId: "completed-a", customerId: "customer", branchId: "branch-a",
+const payment = () => ({ orderId: "received-a", customerId: "customer", branchId: "branch-a",
   staffId: "staff-a", amountCollected: 150, status: "verified", verifiedAt: serverTimestamp() });
-const notification = () => ({ userId: "customer", orderId: "completed-a", type: "order_ready",
+const notification = () => ({ userId: "customer", orderId: "received-a", type: "order_ready",
   message: "Your laundry is ready for pickup.", isRead: false, createdAt: serverTimestamp() });
 async function main() {
   for (const id of ["branch-a", "branch-b"]) await seed("branches/" + id, branch(id));
@@ -76,8 +76,8 @@ async function main() {
   await seed("staffAccounts/staff-b", staff("staff-b", "branch-b"));
   await seed("staffAccounts/inactive", staff("inactive", "branch-a", "staff", false));
   for (const id of ["pending-a", "cancel-a"]) await seed("orders/" + id, order());
-  await seed("orders/completed-a", order("completed"));
-  await seed("orders/staff-as-customer", { ...order("completed"), customerId: "staff-b" });
+  await seed("orders/received-a", order("received"));
+  await seed("orders/staff-as-customer", { ...order("received"), customerId: "staff-b" });
 
   const customer = client("customer"), other = client("other"), a = client("staff-a");
   const b = client("staff-b"), admin = client("admin"), inactive = client("inactive");
@@ -114,9 +114,9 @@ async function main() {
   await check("forged payment collector denied", false, () => addDoc(collection(a, "payments"), { ...payment(), staffId: "admin" }));
   await check("staff pickup payment", true, () => setDoc(doc(a, "payments/paid-a"), payment()));
   await check("payment edit denied", false, () => updateDoc(doc(a, "payments/paid-a"), { amountCollected: 1 }));
-  await check("customer payment lookup by order", true, () => getDocs(query(collection(customer, "payments"), where("orderId", "==", "completed-a"))));
-  await check("assigned staff payment lookup by order", true, () => getDocs(query(collection(a, "payments"), where("orderId", "==", "completed-a"))));
-  await check("other customer payment lookup denied", false, () => getDocs(query(collection(other, "payments"), where("orderId", "==", "completed-a"))));
+  await check("customer payment lookup by order", true, () => getDocs(query(collection(customer, "payments"), where("orderId", "==", "received-a"))));
+  await check("assigned staff payment lookup by order", true, () => getDocs(query(collection(a, "payments"), where("orderId", "==", "received-a"))));
+  await check("other customer payment lookup denied", false, () => getDocs(query(collection(other, "payments"), where("orderId", "==", "received-a"))));
   await check("staff ready notification", true, () => setDoc(doc(a, "notifications/notice-a"), notification()));
   await check("forged notification recipient denied", false, () => addDoc(collection(a, "notifications"), { ...notification(), userId: "other" }));
   await check("other branch notification denied", false, () => addDoc(collection(b, "notifications"), notification()));

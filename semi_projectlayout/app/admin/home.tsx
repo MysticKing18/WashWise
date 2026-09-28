@@ -10,6 +10,7 @@ import { LogoutConfirmModal } from '../../components/LogoutConfirmModal'
 import { useFocusEffect } from 'expo-router'
 import { getBranches } from '../../database/services/branchService'
 import { getAllStaff } from '../../database/services/staffService'
+import { getPayments } from '../../database/services/paymentService'
 
 type ActionCardProps = {
 	icon: keyof typeof Ionicons.glyphMap
@@ -45,17 +46,17 @@ export default function AdminHome() {
 	const router = useRouter()
 	const [showLogout, setShowLogout] = React.useState(false)
 	const [loggingOut, setLoggingOut] = React.useState(false)
-	const [stats, setStats] = React.useState<{ totalStaff: number | null; totalBranches: number | null; activeStaff: number | null }>({ totalStaff: null, totalBranches: null, activeStaff: null })
+	const [stats, setStats] = React.useState<{ totalStaff: number | null; totalBranches: number | null; activeStaff: number | null; payments: number | null }>({ totalStaff: null, totalBranches: null, activeStaff: null, payments: null })
 
 	useFocusEffect(React.useCallback(() => {
 		let mounted = true
 		async function loadStats() {
 			try {
-				const [staffAccounts, branches] = await Promise.all([getAllStaff(), getBranches()])
+				const [staffAccounts, branches, payments] = await Promise.all([getAllStaff(), getBranches(), getPayments()])
 				const staff = staffAccounts.filter((account) => account.role === 'staff')
-				if (mounted) setStats({ totalStaff: staff.length, totalBranches: branches.length, activeStaff: staff.filter((account) => account.isActive).length })
+				if (mounted) setStats({ totalStaff: staff.length, totalBranches: branches.length, activeStaff: staff.filter((account) => account.isActive).length, payments: payments.filter((payment) => payment.status === 'verified').length })
 			} catch {
-				if (mounted) setStats({ totalStaff: null, totalBranches: null, activeStaff: null })
+				if (mounted) setStats({ totalStaff: null, totalBranches: null, activeStaff: null, payments: null })
 			}
 		}
 		void loadStats()
@@ -80,7 +81,7 @@ export default function AdminHome() {
 					<View style={[styles.statCard, styles.yellow]}><Ionicons name="people" size={20} color="#1F61B6" /><Text style={styles.statValue}>{stats.totalStaff ?? '-'}</Text><Text style={styles.statLabel}>Total Staff</Text></View>
 					<View style={[styles.statCard, styles.cream]}><Ionicons name="git-network" size={20} color="#C77D21" /><Text style={styles.statValue}>{stats.totalBranches ?? '-'}</Text><Text style={styles.statLabel}>Branches</Text></View>
 					<View style={[styles.statCard, styles.green]}><Ionicons name="person" size={20} color="#249443" /><Text style={styles.statValue}>{stats.activeStaff ?? '-'}</Text><Text style={styles.statLabel}>Active Staff</Text></View>
-					<View style={[styles.statCard, styles.purple]}><Ionicons name="card" size={20} color="#6133C7" /><Text style={styles.statValue}>8</Text><Text style={styles.statLabel}>Payments</Text></View>
+					<Pressable accessibilityRole="button" accessibilityLabel="Open payment history" onPress={() => navigate('payments')} style={({ pressed }) => [styles.statCard, styles.purple, pressed && styles.pressed]}><Ionicons name="card" size={20} color="#6133C7" /><Text style={styles.statValue}>{stats.payments ?? '-'}</Text><Text style={styles.statLabel}>Payments</Text></Pressable>
 				</View>
 				<Text style={styles.sectionTitle}>Quick Action</Text>
 				<ActionCard icon="person-add" label="Create Staff Account" detail="Add a new staff" onPress={() => router.replace('/admin/createstaff')} />

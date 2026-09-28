@@ -225,13 +225,13 @@ const home = () => {
 
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View order history" style={styles.actionButton} onPress={() => router.replace('/insideapp/history')}>
             <View style={styles.actionIconWrap}>
               <Ionicons name="time-outline" size={22} color="#2563EB" />
             </View>
             <Text style={styles.actionText}>History</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Track current orders" style={styles.actionButton} onPress={() => router.replace('/insideapp/order')}>
             <View style={styles.actionIconWrap}>
               <Ionicons name="cube-outline" size={22} color="#2563EB" />
             </View>

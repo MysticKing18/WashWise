@@ -10,11 +10,11 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase";
-import { Payment } from "../models/Payment";
+import { CreatePaymentInput, Payment } from "../models/Payment";
 
 const paymentsRef = collection(db, "payments");
 
-export const createPayment = async (payment: Omit<Payment, "paymentId" | "verifiedAt">): Promise<string> => {
+export const createPayment = async (payment: CreatePaymentInput): Promise<string> => {
   try {
     const paymentDoc = doc(paymentsRef);
     await setDoc(paymentDoc, {
@@ -30,14 +30,14 @@ export const createPayment = async (payment: Omit<Payment, "paymentId" | "verifi
   }
 };
 
-export const getPaymentByOrder = async (orderId: string): Promise<Payment | null> => {
+export const getPaymentByOrder = async (orderId: string, branchId: string): Promise<Payment | null> => {
   try {
-    const q = query(paymentsRef, where("orderId", "==", orderId));
+    const q = query(paymentsRef, where("branchId", "==", branchId));
     const snapshot = await getDocs(q);
 
-    if (snapshot.empty) return null;
+    const paymentDoc = snapshot.docs.find((docSnap) => docSnap.data().orderId === orderId);
+    if (!paymentDoc) return null;
 
-    const paymentDoc = snapshot.docs[0];
     return {
       ...(paymentDoc.data() as Payment),
       paymentId: paymentDoc.id,

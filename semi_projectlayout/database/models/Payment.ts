@@ -12,3 +12,5 @@ export interface Payment {
   status: PaymentStatus;
   verifiedAt: Timestamp;
 }
+
+export type CreatePaymentInput = Omit<Payment, "paymentId" | "status" | "verifiedAt">;
