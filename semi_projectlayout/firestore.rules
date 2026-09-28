@@ -85,16 +85,14 @@ service cloud.firestore {
         && d.get('estimatedPrice', 0) is number && d.get('estimatedPrice', 0) >= 0
         && d.get('confirmedPrice', 0) is number && d.get('confirmedPrice', 0) >= 0
         && d.get('cancelReason', '') is string
-        && d.status in ['pending_dropoff', 'received', 'washing', 'drying', 'ready', 'completed', 'cancelled']
+        && d.status in ['pending_dropoff', 'received', 'washing', 'completed', 'cancelled']
         && d.createdAt is timestamp && d.updatedAt is timestamp;
     }
     function validTransition(before, after) {
       return before == after
-        || (before == 'pending_dropoff' && after in ['received', 'cancelled'])
+        || (before == 'pending_dropoff' && after in ['received', 'washing', 'cancelled'])
         || (before == 'received' && after in ['washing', 'cancelled'])
-        || (before == 'washing' && after == 'drying')
-        || (before == 'drying' && after == 'ready')
-        || (before == 'ready' && after == 'completed');
+        || (before == 'washing' && after == 'completed');
     }
     function customerCancellation() {
       return owner(resource.data.customerId)
@@ -162,7 +160,8 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true
         && activeBranch(request.resource.data.branchId)
         && request.resource.data.status == 'pending_dropoff'
-        && !request.resource.data.keys().hasAny(['confirmedPrice', 'cancelReason'])
+        && request.resource.data.get('confirmedPrice', request.resource.data.estimatedPrice) == request.resource.data.estimatedPrice
+        && !request.resource.data.keys().hasAny(['cancelReason'])
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow update: if signedIn()
@@ -183,7 +182,7 @@ service cloud.firestore {
           && d.customerId == order.customerId && d.branchId == order.branchId
           && d.staffId == request.auth.uid
           && manages(order.branchId)
-          && order.status == 'ready'
+          && order.status == 'completed'
           && d.amountCollected is number && d.amountCollected > 0
           && d.amountCollected == order.confirmedPrice
           && d.status == 'verified' && d.verifiedAt == request.time;

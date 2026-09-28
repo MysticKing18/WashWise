@@ -5,6 +5,7 @@ import { useLocalSearchParams } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import React, { useRef, useState } from 'react'
 import {
+  ActivityIndicator,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -20,6 +21,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BRANCH_CATALOG } from '../../database/branchCatalog'
 import { getBranchImage } from '../../utils/branchLocation'
+import { auth } from '../../firebase/firebase'
+import { createOrder } from '../../database/services/orderService'
 
 type ServicePriority = 'regular' | 'rush'
 
@@ -34,6 +37,10 @@ export default function OrderChoice() {
   const [weight, setWeight] = useState('3')
   const [weightTouched, setWeightTouched] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
+  const [finalizing, setFinalizing] = useState(false)
+  const [orderPlaced, setOrderPlaced] = useState(false)
+  const [orderId, setOrderId] = useState('')
+  const [submitError, setSubmitError] = useState('')
 
   const branch = BRANCH_CATALOG.find((item) => item.branchId === branchId) || BRANCH_CATALOG[0]
   const branchName = branch.branchId === 'mr-bee-laundromat-services' ? 'Main Branch' : branch.name
@@ -63,7 +70,44 @@ export default function OrderChoice() {
 
     Keyboard.dismiss()
     // Review only; order submission belongs to the next step of the workflow.
+    setSubmitError('')
+    setOrderPlaced(false)
     setShowSummary(true)
+  }
+
+  const finalizeOrder = async () => {
+    const customerId = auth.currentUser?.uid
+    if (!customerId || estimatedPrice === null) {
+      setSubmitError('Please sign in again before placing this order.')
+      return
+    }
+
+    setFinalizing(true)
+    setSubmitError('')
+    try {
+      const createdOrderId = await createOrder({
+        customerId,
+        branchId: branch.branchId,
+        serviceType: 'Basic Washing',
+        priority,
+        laundryDetails: `${normalizedWeight} kg`,
+        estimatedPrice,
+        confirmedPrice: estimatedPrice,
+      })
+      setOrderId(createdOrderId)
+      setOrderPlaced(true)
+    } catch (error) {
+      const code = (error as { code?: string }).code
+      if (code === 'permission-denied') {
+        setSubmitError('Order permission denied. Confirm that your signed-in account has an active users profile and that this branch exists in Firestore.')
+      } else if (code === 'auth/user-not-found' || code === 'unauthenticated') {
+        setSubmitError('Your customer session expired. Please sign in again before placing the order.')
+      } else {
+        setSubmitError('We could not send your order. Check your connection and try again.')
+      }
+    } finally {
+      setFinalizing(false)
+    }
   }
 
   const handleBack = () => {
@@ -200,15 +244,31 @@ export default function OrderChoice() {
         <SafeAreaView style={styles.modalOverlay}>
           <View role="dialog" aria-modal accessibilityLabel="Review your estimate" accessibilityViewIsModal style={styles.summaryCard}>
             <ScrollView contentContainerStyle={styles.summaryContent} showsVerticalScrollIndicator={false}>
-              <Text accessibilityRole="header" style={styles.summaryTitle}>Review your estimate</Text>
+              <Text accessibilityRole="header" style={styles.summaryTitle}>{orderPlaced ? 'Order sent successfully' : 'Finalize your order?'}</Text>
               <Text style={styles.summaryBranch}>{branchName}</Text>
               <Text style={styles.summaryDetails}>{service.label} · {normalizedWeight} kg × ₱{service.pricePerKg}/kg</Text>
               <Text style={styles.summaryAmount}>₱ {priceLabel}</Text>
-              <Text style={styles.summaryNote}>Staff will verify the weight and final price at drop-off. Payment is made in person at pickup.</Text>
-              <Text style={styles.summaryNotice}>No order has been placed yet.</Text>
-              <Pressable accessibilityRole="button" onPress={() => setShowSummary(false)} style={({ pressed }) => [styles.continueButton, styles.summaryButton, pressed && styles.pressed]}>
-                <Text style={styles.continueButtonText}>Back to order</Text>
-              </Pressable>
+              {orderPlaced ? <>
+                <Text style={styles.summaryNote}>Your order has been sent to the selected branch.</Text>
+                <Text style={styles.summaryNotice}>Please proceed to the store for drop-off. Staff will verify the weight and confirm the final price. Payment is made in person at pickup.</Text>
+                <Text style={styles.summaryNotice}>Order ID: {orderId}</Text>
+                <Pressable accessibilityRole="button" onPress={() => router.replace('/insideapp/home')} style={({ pressed }) => [styles.continueButton, styles.summaryButton, pressed && styles.pressed]}>
+                  <Text style={styles.continueButtonText}>Back to home</Text>
+                </Pressable>
+              </> : <>
+                <Text style={styles.summaryNote}>Do you wish to finalize and send this order to the selected branch?</Text>
+                <Text style={styles.summaryNotice}>Staff will verify the weight and final price at drop-off. Payment is made in person at pickup.</Text>
+                {!!submitError && <Text accessibilityRole="alert" style={styles.submitError}>{submitError}</Text>}
+                <View style={styles.summaryActions}>
+                  <Pressable accessibilityRole="button" disabled={finalizing} onPress={() => setShowSummary(false)} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" disabled={finalizing} onPress={() => void finalizeOrder()} style={({ pressed }) => [styles.finalizeButton, finalizing && styles.disabledButton, pressed && styles.pressed]}>
+                    {finalizing && <ActivityIndicator size="small" color="#FFFFFF" />}
+                    <Text style={styles.continueButtonText}>{finalizing ? 'Sending...' : 'Finalize Order'}</Text>
+                  </Pressable>
+                </View>
+              </>}
             </ScrollView>
           </View>
         </SafeAreaView>
@@ -279,4 +339,10 @@ const styles = StyleSheet.create({
   summaryNote: { marginTop: 14, color: '#527B9A', fontSize: 14, lineHeight: 21 },
   summaryNotice: { marginTop: 12, color: '#527B9A', fontSize: 12, lineHeight: 18 },
   summaryButton: { marginTop: 22 },
+  summaryActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
+  cancelButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#8BBFE3', backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 13 },
+  cancelButtonText: { color: '#176A9E', fontSize: 15, fontWeight: '700' },
+  finalizeButton: { flex: 1, minHeight: 48, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#0879DA', paddingHorizontal: 12, paddingVertical: 13 },
+  disabledButton: { opacity: 0.65 },
+  submitError: { marginTop: 12, color: '#AF3546', backgroundColor: '#FFF0F1', borderRadius: 7, padding: 10, fontSize: 12, lineHeight: 17 },
 })

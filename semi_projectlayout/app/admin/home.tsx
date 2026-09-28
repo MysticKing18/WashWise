@@ -7,6 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase/firebase'
 import { LogoutConfirmModal } from '../../components/LogoutConfirmModal'
+import { useFocusEffect } from 'expo-router'
+import { getBranches } from '../../database/services/branchService'
+import { getAllStaff } from '../../database/services/staffService'
 
 type ActionCardProps = {
 	icon: keyof typeof Ionicons.glyphMap
@@ -42,6 +45,23 @@ export default function AdminHome() {
 	const router = useRouter()
 	const [showLogout, setShowLogout] = React.useState(false)
 	const [loggingOut, setLoggingOut] = React.useState(false)
+	const [stats, setStats] = React.useState<{ totalStaff: number | null; totalBranches: number | null; activeStaff: number | null }>({ totalStaff: null, totalBranches: null, activeStaff: null })
+
+	useFocusEffect(React.useCallback(() => {
+		let mounted = true
+		async function loadStats() {
+			try {
+				const [staffAccounts, branches] = await Promise.all([getAllStaff(), getBranches()])
+				const staff = staffAccounts.filter((account) => account.role === 'staff')
+				if (mounted) setStats({ totalStaff: staff.length, totalBranches: branches.length, activeStaff: staff.filter((account) => account.isActive).length })
+			} catch {
+				if (mounted) setStats({ totalStaff: null, totalBranches: null, activeStaff: null })
+			}
+		}
+		void loadStats()
+		return () => { mounted = false }
+	}, []))
+
 	const navigate = (screen: 'home' | 'staff' | 'payments') => {
 		if (screen === 'staff') router.replace('/admin/staff')
 		else if (screen === 'payments') router.replace('/admin/payment')
@@ -54,12 +74,12 @@ export default function AdminHome() {
 		<Image source={require('../../assets/img/bubble2.png')} style={[styles.bubble, styles.rightBubble]} resizeMode="contain" />
 		<SafeAreaView style={styles.safeArea}>
 			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-				<View style={styles.brandRow}><View style={styles.brandMark}><Ionicons name="water" size={23} color="#FFFFFF" /></View><View><Text style={styles.brandName}>WashWise</Text><Text style={styles.brandSub}>Admin Panel</Text></View><Ionicons name="notifications-outline" size={23} color="#176A9E" style={styles.notification} /></View>
+				<View style={styles.brandRow}><Image source={require('../../assets/icon.png')} style={styles.brandLogo} resizeMode="contain" /><View><Text style={styles.brandName}>WashWise</Text><Text style={styles.brandSub}>Admin Panel</Text></View><Ionicons name="notifications-outline" size={23} color="#176A9E" style={styles.notification} /></View>
 				<Text style={styles.greeting}>Hello, Admin!</Text><Text style={styles.caption}>See the progress today.</Text>
 				<View style={styles.statsGrid}>
-					<View style={[styles.statCard, styles.yellow]}><Ionicons name="people" size={20} color="#1F61B6" /><Text style={styles.statValue}>28</Text><Text style={styles.statLabel}>Total Staff</Text></View>
-					<View style={[styles.statCard, styles.cream]}><Ionicons name="git-network" size={20} color="#C77D21" /><Text style={styles.statValue}>2</Text><Text style={styles.statLabel}>Branches</Text></View>
-					<View style={[styles.statCard, styles.green]}><Ionicons name="person" size={20} color="#249443" /><Text style={styles.statValue}>28</Text><Text style={styles.statLabel}>Active Staff</Text></View>
+					<View style={[styles.statCard, styles.yellow]}><Ionicons name="people" size={20} color="#1F61B6" /><Text style={styles.statValue}>{stats.totalStaff ?? '-'}</Text><Text style={styles.statLabel}>Total Staff</Text></View>
+					<View style={[styles.statCard, styles.cream]}><Ionicons name="git-network" size={20} color="#C77D21" /><Text style={styles.statValue}>{stats.totalBranches ?? '-'}</Text><Text style={styles.statLabel}>Branches</Text></View>
+					<View style={[styles.statCard, styles.green]}><Ionicons name="person" size={20} color="#249443" /><Text style={styles.statValue}>{stats.activeStaff ?? '-'}</Text><Text style={styles.statLabel}>Active Staff</Text></View>
 					<View style={[styles.statCard, styles.purple]}><Ionicons name="card" size={20} color="#6133C7" /><Text style={styles.statValue}>8</Text><Text style={styles.statLabel}>Payments</Text></View>
 				</View>
 				<Text style={styles.sectionTitle}>Quick Action</Text>
@@ -76,7 +96,7 @@ export default function AdminHome() {
 const styles = StyleSheet.create({
 	screen: { flex: 1, backgroundColor: '#E3F4FF' }, safeArea: { flex: 1 }, content: { width: '100%', maxWidth: 420, alignSelf: 'center', padding: 14, paddingBottom: 20 },
 	bubble: { position: 'absolute', opacity: 0.35 }, topBubble: { width: 110, height: 110, top: -42, left: -42 }, rightBubble: { width: 125, height: 125, top: 210, right: -55 },
-	brandRow: { flexDirection: 'row', alignItems: 'center' }, brandMark: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0877C8', marginRight: 8 }, brandName: { color: '#075191', fontSize: 18, fontWeight: '800' }, brandSub: { color: '#6B879B', fontSize: 8, marginTop: 1 }, notification: { marginLeft: 'auto' },
+	brandRow: { flexDirection: 'row', alignItems: 'center' }, brandLogo: { width: 44, height: 44, marginRight: 8 }, brandName: { color: '#075191', fontSize: 18, fontWeight: '800' }, brandSub: { color: '#6B879B', fontSize: 8, marginTop: 1 }, notification: { marginLeft: 'auto' },
 	greeting: { marginTop: 21, color: '#075191', fontSize: 21, fontWeight: '800' }, caption: { color: '#6C8495', fontSize: 9, marginTop: 2 }, statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 }, statCard: { width: '48%', minHeight: 77, borderRadius: 9, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)' }, yellow: { backgroundColor: '#FFF0B8' }, cream: { backgroundColor: '#FFEBC4' }, green: { backgroundColor: '#C8F6D5' }, purple: { backgroundColor: '#DCD2FF' }, statValue: { color: '#28516E', fontSize: 21, fontWeight: '800', marginTop: 2 }, statLabel: { color: '#648093', fontSize: 8 },
 	sectionTitle: { color: '#075191', fontSize: 12, fontWeight: '800', marginTop: 20, marginBottom: 7 }, actionCard: { minHeight: 54, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, marginBottom: 7, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.9)', borderWidth: 1, borderColor: '#CFE1EC' }, actionIcon: { width: 31, height: 31, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#D9F0FF' }, actionCopy: { flex: 1, marginLeft: 9 }, actionLabel: { color: '#075191', fontSize: 10, fontWeight: '800' }, actionDetail: { color: '#6B879B', fontSize: 8, marginTop: 2 }, pressed: { opacity: 0.7 }, bottomNav: { minHeight: 59, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#A9D8F2', backgroundColor: 'rgba(255,255,255,0.96)' }, navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }, navLabel: { color: '#71879A', fontSize: 8 }, activeNavLabel: { color: '#0877C8', fontWeight: '800' },
 })

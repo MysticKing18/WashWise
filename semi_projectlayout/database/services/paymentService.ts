@@ -1,12 +1,12 @@
 import {
-  addDoc,
   collection,
+  doc,
   getDocs,
   query,
   serverTimestamp,
   where,
-  doc,
   getDoc,
+  setDoc,
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase";
@@ -16,8 +16,10 @@ const paymentsRef = collection(db, "payments");
 
 export const createPayment = async (payment: Omit<Payment, "paymentId" | "verifiedAt">): Promise<string> => {
   try {
-    const paymentDoc = await addDoc(paymentsRef, {
+    const paymentDoc = doc(paymentsRef);
+    await setDoc(paymentDoc, {
       ...payment,
+      paymentId: paymentDoc.id,
       status: "verified",
       verifiedAt: serverTimestamp(),
     });

@@ -106,6 +106,18 @@ export const updateOrderStatus = async (
   }
 };
 
+export const updateBranchOrderStatus = async (
+  orderId: string,
+  branchId: string,
+  status: OrderStatus
+): Promise<void> => {
+  const order = await getOrderById(orderId);
+  if (!order || order.branchId !== branchId) {
+    throw new Error("This order does not belong to your assigned branch.");
+  }
+  await updateOrderStatus(orderId, status);
+};
+
 export const cancelOrder = async (
   orderId: string,
   reason?: string

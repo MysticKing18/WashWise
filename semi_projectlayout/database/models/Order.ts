@@ -4,8 +4,6 @@ export type OrderStatus =
   | "pending_dropoff"
   | "received"
   | "washing"
-  | "drying"
-  | "ready"
   | "completed"
   | "cancelled";
 

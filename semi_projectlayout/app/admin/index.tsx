@@ -1,159 +1,191 @@
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Alert } from 'react-native'
-import React, { useState } from 'react'
+import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
-import { auth, db } from '../../firebase/firebase'
+import React from 'react'
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
-const ADMIN_EMAIL = 'kinglukecroewyn@gmail.com'
-
-const login = () => {
+export default function AdminEntry() {
   const router = useRouter()
-  const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleLogin = async () => {
-    if (!password) {
-      Alert.alert('Missing password', 'Enter your admin password to continue.')
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const credential = await signInWithEmailAndPassword(auth, ADMIN_EMAIL, password)
-      const staffSnapshot = await getDoc(doc(db, 'staffAccounts', credential.user.uid))
-      const staff = staffSnapshot.data() as { role?: string; isActive?: boolean } | undefined
-
-      if (!staffSnapshot.exists() || staff?.role !== 'admin' || staff.isActive !== true) {
-        await signOut(auth)
-        Alert.alert('Access denied', 'This account is not configured as an active admin.')
-        return
-      }
-
-      router.replace('/admin/home')
-    } catch (error: any) {
-      const message = error?.code === 'auth/invalid-credential'
-        ? 'The admin password is incorrect.'
-        : error?.code === 'auth/too-many-requests'
-          ? 'Too many attempts. Try again later.'
-          : 'Unable to log in. Check your connection and Firebase setup.'
-      Alert.alert('Admin login failed', message)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Image
-            source={require('../../assets/img/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.subtitle}>Enter admin password to continue</Text>
-        </View>
+    <View style={styles.screen}>
+      <LinearGradient colors={['#B8E2F8', '#EAF8FF', '#D5F0FD']} style={StyleSheet.absoluteFill} />
+      <Image source={require('../../assets/img/bubble1.png')} style={[styles.bubble, styles.leftBubble]} resizeMode="contain" />
+      <Image source={require('../../assets/img/bubble2.png')} style={[styles.bubble, styles.rightBubble]} resizeMode="contain" />
+      <Image source={require('../../assets/img/bubble1.png')} style={[styles.bubble, styles.smallBubble]} resizeMode="contain" />
 
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter admin password"
-              placeholderTextColor="#9CA3AF"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoFocus
-            />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
+          <View style={styles.branding}>
+            <Image source={require('../../assets/img/logo.png')} style={styles.logo} resizeMode="contain" />
+            <Text style={styles.portalLabel}>Admin Portal</Text>
           </View>
 
-          <TouchableOpacity disabled={isLoading} style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={() => void handleLogin()}>
-            <Text style={styles.primaryButtonText}>{isLoading ? 'Logging in...' : 'Log in'}</Text>
-          </TouchableOpacity>
+          <View style={styles.welcomePanel}>
+            <View style={styles.shieldCircle}>
+              <Ionicons name="shield-checkmark" size={38} color="#FFFFFF" />
+            </View>
+            <Text style={styles.welcomeTitle}>Welcome Admin!</Text>
+            <Text style={styles.welcomeSubtitle}>Access the WashWise Management System</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Proceed to admin sign in"
+              onPress={() => router.push('/admin/login')}
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressedButton]}
+            >
+              <Text style={styles.primaryButtonText}>Proceed</Text>
+              <Ionicons name="arrow-forward" size={21} color="#FFFFFF" />
+            </Pressable>
+            <View style={styles.buttonUnderline} />
+          </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </SafeAreaView>
+      <View style={styles.bottomWaveBack} />
+      <View style={styles.bottomWaveFront} />
+    </View>
   )
 }
 
-export default login
-
 const styles = StyleSheet.create({
-  flex: {
+  screen: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#D5F0FD',
+    overflow: 'hidden',
   },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 40,
+  safeArea: {
+    flex: 1,
   },
-  header: {
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 40,
+    paddingTop: 36,
+    paddingBottom: 18,
+  },
+  branding: {
+    alignItems: 'center',
   },
   logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 8,
+    width: 166,
+    height: 122,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  form: {
-    width: '100%',
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  portalLabel: {
+    marginTop: 2,
+    color: '#00599E',
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#F9FAFB',
+    fontWeight: '700',
+  },
+  welcomePanel: {
+    width: '100%',
+    maxWidth: 430,
+    minHeight: 194,
+    alignItems: 'center',
+    paddingTop: 21,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: 'rgba(113, 138, 151, 0.55)',
+    backgroundColor: 'rgba(247, 252, 255, 0.86)',
+    shadowColor: '#52788A',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 7,
+    elevation: 5,
+  },
+  shieldCircle: {
+    width: 47,
+    height: 47,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#075796',
+    borderRadius: 24,
+  },
+  welcomeTitle: {
+    marginTop: 8,
+    color: '#154C75',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  welcomeSubtitle: {
+    marginTop: 6,
+    color: '#6C7E8D',
+    fontSize: 9,
   },
   primaryButton: {
-    backgroundColor: '#68b5f5',
-    borderRadius: 10,
-    paddingVertical: 15,
+    width: '100%',
+    maxWidth: 380,
+    height: 34,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
+    gap: 30,
+    marginTop: 10,
+    borderRadius: 18,
+    backgroundColor: '#0877D1',
+    shadowColor: '#2873A0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.24,
+    shadowRadius: 5,
     elevation: 3,
-    ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 8px rgba(15, 110, 86, 0.2)',
-      },
-      default: {
-        shadowColor: '#0F6E56',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-    }),
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
-  disabledButton: {
+  pressedButton: {
     opacity: 0.65,
+  },
+  buttonUnderline: {
+    width: '92%',
+    height: 4,
+    marginTop: 8,
+    borderRadius: 2,
+    backgroundColor: '#9BD4FA',
+  },
+  bubble: {
+    position: 'absolute',
+    opacity: 0.45,
+  },
+  leftBubble: {
+    width: 52,
+    height: 52,
+    top: 34,
+    left: -19,
+  },
+  rightBubble: {
+    width: 86,
+    height: 86,
+    top: 68,
+    right: -19,
+  },
+  smallBubble: {
+    width: 25,
+    height: 25,
+    top: 126,
+    left: 16,
+  },
+  bottomWaveBack: {
+    position: 'absolute',
+    height: 28,
+    bottom: -17,
+    left: -20,
+    right: -20,
+    borderRadius: 50,
+    backgroundColor: '#7EC5EC',
+    transform: [{ rotate: '-3deg' }],
+  },
+  bottomWaveFront: {
+    position: 'absolute',
+    height: 20,
+    bottom: -15,
+    left: -20,
+    right: -20,
+    borderRadius: 50,
+    backgroundColor: '#49A3D8',
+    transform: [{ rotate: '2deg' }],
   },
 })
