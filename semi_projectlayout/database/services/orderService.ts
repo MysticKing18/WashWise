@@ -11,7 +11,9 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase";
+import { auth } from "../../firebase/firebase";
 import { Order, OrderStatus } from "../models/Order";
+import { notifyBranchStaff, notifyCustomer } from "./notificationService";
 
 const ordersRef = collection(db, "orders");
 
@@ -24,6 +26,7 @@ export const createOrder = async (order: Omit<Order, "orderId" | "status" | "cre
       updatedAt: serverTimestamp(),
     });
 
+    await notifyBranchStaff(order.branchId, newOrderRef.id, "new_order", "A new laundry order is waiting for your branch.");
     return newOrderRef.id;
   } catch (error) {
     console.error("Error creating order:", error);
@@ -95,11 +98,20 @@ export const updateOrderStatus = async (
   status: OrderStatus
 ): Promise<void> => {
   try {
+    const existingOrder = await getOrderById(orderId);
     const orderDoc = doc(db, "orders", orderId);
     await updateDoc(orderDoc, {
       status,
       updatedAt: serverTimestamp(),
     });
+    if (existingOrder && (status === "received" || status === "washing" || status === "completed")) {
+      const message = status === "received"
+        ? "Your laundry has been received by the branch."
+        : status === "washing"
+          ? "Your laundry is now being washed."
+          : "Your laundry is complete and ready for pickup.";
+      await notifyCustomer(existingOrder.customerId, orderId, existingOrder.branchId, status === "completed" ? "order_ready" : "order_update", message);
+    }
   } catch (error) {
     console.error("Error updating order status:", error);
     throw error;
@@ -123,12 +135,21 @@ export const cancelOrder = async (
   reason?: string
 ): Promise<void> => {
   try {
+    const existingOrder = await getOrderById(orderId);
     const orderDoc = doc(db, "orders", orderId);
     await updateDoc(orderDoc, {
       status: "cancelled",
       cancelReason: reason || "Cancelled by authorized user",
       updatedAt: serverTimestamp(),
     });
+    if (existingOrder) {
+      const message = `Order ${orderId} was cancelled. ${reason || ""}`.trim();
+      if (auth.currentUser?.uid === existingOrder.customerId) {
+        await notifyBranchStaff(existingOrder.branchId, orderId, "order_cancelled", message);
+      } else {
+        await notifyCustomer(existingOrder.customerId, orderId, existingOrder.branchId, "order_cancelled", message);
+      }
+    }
   } catch (error) {
     console.error("Error cancelling order:", error);
     throw error;

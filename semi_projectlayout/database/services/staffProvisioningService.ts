@@ -12,6 +12,7 @@ import {
 import { doc, getDocFromServer, runTransaction, serverTimestamp } from "firebase/firestore";
 
 import { auth, db } from "../../firebase/firebase";
+import { notifyAdmins } from "./notificationService";
 
 export interface CreateStaffLoginInput {
   fullName: string;
@@ -211,6 +212,7 @@ export async function createStaffLoginAccount(
         `The login was created, but the staff profile could not be confirmed. Check staffAccounts/${staffId} and Authentication in Firebase before retrying.`
       );
     }
+    await notifyAdmins("staff_change", `A new staff account was created for branch ${branchId}.`, branchId);
     return { staffId };
   } finally {
     // Only the isolated, in-memory session is cleaned up. Never sign out auth.

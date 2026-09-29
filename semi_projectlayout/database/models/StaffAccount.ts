@@ -1,6 +1,6 @@
 import { Timestamp } from "firebase/firestore";
 
-export type StaffRole = "staff";
+export type StaffRole = "staff" | "admin";
 
 export interface StaffAccount {
   staffId: string;

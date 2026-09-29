@@ -196,22 +196,82 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      function validNotification() {
+      function validNotificationRecipient(d) {
+        return (d.recipientScope == 'user'
+          && d.recipientRole == 'customer'
+          && d.orderId is string
+          && get(/databases/$(database)/documents/orders/$(d.orderId)).data.customerId == d.userId)
+          || (d.recipientScope == 'branch'
+            && d.recipientRole == 'staff'
+            && d.branchId is string
+            && exists(/databases/$(database)/documents/branches/$(d.branchId)))
+          || (d.recipientScope == 'user'
+            && d.recipientRole == 'staff'
+            && exists(/databases/$(database)/documents/staffAccounts/$(d.userId))
+            && get(/databases/$(database)/documents/staffAccounts/$(d.userId)).data.role == 'staff'
+            && get(/databases/$(database)/documents/staffAccounts/$(d.userId)).data.isActive == true)
+          || (d.recipientScope == 'user'
+            && d.recipientRole == 'admin'
+            && exists(/databases/$(database)/documents/staffAccounts/$(d.userId))
+            && get(/databases/$(database)/documents/staffAccounts/$(d.userId)).data.role == 'admin'
+            && get(/databases/$(database)/documents/staffAccounts/$(d.userId)).data.isActive == true)
+          || (d.recipientScope == 'broadcast'
+            && d.recipientRole == 'admin'
+            && d.userId == 'admins');
+      }
+      function validNotificationData(d, notificationId) {
+        return d.keys().hasAll(['notificationId', 'userId', 'recipientRole', 'recipientScope', 'type', 'message', 'isRead', 'createdAt'])
+          && d.keys().hasOnly(['notificationId', 'userId', 'recipientRole', 'recipientScope', 'branchId', 'orderId', 'paymentId', 'target', 'type', 'message', 'isRead', 'createdAt'])
+          && d.notificationId == notificationId
+          && d.userId is string
+          && d.recipientRole in ['customer', 'staff', 'admin']
+          && d.recipientScope in ['user', 'branch', 'broadcast']
+          && d.type in ['order_ready', 'order_update', 'new_order', 'order_cancelled', 'payment_verified', 'staff_change', 'branch_change']
+          && (!('branchId' in d) || d.branchId is string)
+          && (!('orderId' in d) || d.orderId is string)
+          && (!('paymentId' in d) || d.paymentId is string)
+          && (!('target' in d) || d.target in ['order', 'payment', 'management'])
+          && d.message is string
+          && d.isRead is bool
+          && d.createdAt is timestamp
+          && validNotificationRecipient(d);
+      }
+      function customerCreatesStaffNotification() {
         let d = request.resource.data;
         let order = get(/databases/$(database)/documents/orders/$(d.orderId)).data;
-        return d.keys().hasAll(['userId', 'orderId', 'type', 'message', 'isRead', 'createdAt'])
-          && d.keys().hasOnly(['notificationId', 'userId', 'orderId', 'type', 'message', 'isRead', 'createdAt'])
-          && d.get('notificationId', notificationId) == notificationId
-          && d.orderId is string && d.userId == order.customerId
-          && manages(order.branchId)
-          && d.type in ['order_ready', 'order_update']
-          && (d.type != 'order_ready' || order.status == 'completed')
-          && d.message is string
-          && d.isRead == false && d.createdAt == request.time;
+        return owner(order.customerId)
+          && d.recipientRole == 'staff'
+          && d.recipientScope == 'branch'
+          && d.type in ['new_order', 'order_cancelled']
+          && d.branchId == order.branchId;
       }
-      allow read: if owner(resource.data.userId);
-      allow create: if activeStaff() && validNotification();
-      allow update: if owner(resource.data.userId)
+      function staffCreatesNotification() {
+        let d = request.resource.data;
+        return activeStaff()
+          && ((d.recipientRole == 'customer' && d.recipientScope == 'user' && d.orderId is string && manages(d.branchId))
+            || (d.recipientRole == 'admin' && d.recipientScope == 'broadcast'));
+      }
+      function validNotification() {
+        return validNotificationData(request.resource.data, notificationId)
+          && request.resource.data.isRead == false
+          && request.resource.data.createdAt == request.time;
+      }
+      allow read: if owner(resource.data.userId)
+        || (resource.data.recipientScope == 'branch'
+          && resource.data.recipientRole == 'staff'
+          && staffFor(resource.data.branchId))
+        || (resource.data.recipientScope == 'broadcast'
+          && resource.data.recipientRole == 'admin'
+          && admin());
+      allow create: if validNotification()
+        && (customerCreatesStaffNotification() || staffCreatesNotification() || admin());
+      allow update: if (owner(resource.data.userId)
+        || (resource.data.recipientScope == 'branch'
+          && resource.data.recipientRole == 'staff'
+          && staffFor(resource.data.branchId))
+        || (resource.data.recipientScope == 'broadcast'
+          && resource.data.recipientRole == 'admin'
+          && admin()))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
         && request.resource.data.isRead is bool;
       allow delete: if false;

@@ -1,8 +1,7 @@
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router'
-import { Alert } from 'react-native'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth } from '../firebase/firebase'
 import { getUserById } from '../database/services/userService'
@@ -12,37 +11,49 @@ const login = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase()
 
+    setErrorMessage('')
     if (!trimmedEmail || !password) {
-      Alert.alert('Missing information', 'Please enter your email and password.')
+      setErrorMessage('Enter your email and password.')
       return
     }
 
+    setLoading(true)
     try {
       const credential = await signInWithEmailAndPassword(auth, trimmedEmail, password)
       const customer = await getUserById(credential.user.uid)
 
       if (!customer) {
         await signOut(auth)
-        Alert.alert('Profile unavailable', 'Your customer profile could not be found.')
+        setErrorMessage('Your customer profile could not be found.')
         return
       }
 
       if (!customer.isActive) {
         await signOut(auth)
-        Alert.alert('Account inactive', 'This customer account is currently inactive.')
+        setErrorMessage('This customer account is currently inactive.')
         return
       }
 
       router.replace('/insideapp/home')
     } catch (error: any) {
-      const message = error?.code === 'auth/invalid-credential'
-        ? 'The email or password is incorrect.'
-        : 'Login failed. Please try again.'
-      Alert.alert('Login failed', message)
+      const messages: Record<string, string> = {
+        'auth/invalid-credential': 'The email or password is incorrect.',
+        'auth/wrong-password': 'The email or password is incorrect.',
+        'auth/user-not-found': 'The email or password is incorrect.',
+        'auth/invalid-email': 'Enter a valid email address.',
+        'auth/user-disabled': 'This account has been disabled. Contact support.',
+        'auth/too-many-requests': 'Too many attempts. Please wait and try again.',
+        'auth/network-request-failed': 'Unable to connect. Check your internet connection and try again.',
+      }
+      setErrorMessage(messages[error?.code] || 'Unable to log in. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -73,7 +84,8 @@ const login = () => {
               placeholder="you@example.com"
               placeholderTextColor="#9CA3AF"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => { setEmail(value); setErrorMessage('') }}
+              editable={!loading}
               autoCapitalize="none"
               keyboardType="email-address"
             />
@@ -87,11 +99,13 @@ const login = () => {
                 placeholder="Enter your password"
                 placeholderTextColor="#9CA3AF"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(value) => { setPassword(value); setErrorMessage('') }}
+                editable={!loading}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity
                 style={styles.eyeButton}
+                disabled={loading}
                 onPress={() => setShowPassword((visible) => !visible)}
                 accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -108,8 +122,11 @@ const login = () => {
             <Text style={styles.forgotPasswordText}>Forgot password?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-            <Text style={styles.primaryButtonText}>Log in</Text>
+          {!!errorMessage && <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text>}
+
+          <TouchableOpacity disabled={loading} style={[styles.primaryButton, loading && styles.disabled]} onPress={() => void handleLogin()}>
+            {loading && <ActivityIndicator size="small" color="#FFFFFF" />}
+            <Text style={styles.primaryButtonText}>{loading ? 'Logging in...' : 'Log in'}</Text>
           </TouchableOpacity>
 
           <View style={styles.footer}>
@@ -232,4 +249,14 @@ const styles = StyleSheet.create({
     color: '#4898e4',
     fontWeight: '700',
   },
+  error: {
+    color: '#AF3546',
+    backgroundColor: '#FFF0F1',
+    borderRadius: 6,
+    padding: 10,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  disabled: { opacity: 0.6 },
 })

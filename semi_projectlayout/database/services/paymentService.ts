@@ -11,6 +11,7 @@ import {
 
 import { db } from "../../firebase/firebase";
 import { CreatePaymentInput, Payment } from "../models/Payment";
+import { notifyAdmins, notifyCustomer } from "./notificationService";
 
 const paymentsRef = collection(db, "payments");
 
@@ -23,6 +24,8 @@ export const createPayment = async (payment: CreatePaymentInput): Promise<string
       status: "verified",
       verifiedAt: serverTimestamp(),
     });
+    await notifyCustomer(payment.customerId, payment.orderId, payment.branchId, "payment_verified", "Your payment has been verified by the branch.", "payment", paymentDoc.id);
+    await notifyAdmins("payment_verified", `Payment for order ${payment.orderId} was verified.`, payment.branchId, payment.orderId, paymentDoc.id);
     return paymentDoc.id;
   } catch (error) {
     console.error("Error creating payment:", error);

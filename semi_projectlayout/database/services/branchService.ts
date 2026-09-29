@@ -14,6 +14,7 @@ import {
 import { db } from "../../firebase/firebase";
 import { BRANCH_CATALOG } from "../branchCatalog";
 import { Branch } from "../models/Branch";
+import { notifyAdmins } from "./notificationService";
 
 const branchesRef = collection(db, "branches");
 
@@ -25,6 +26,7 @@ export const createBranch = async (branch: Branch): Promise<void> => {
       createdAt: branch.createdAt || serverTimestamp(),
       updatedAt: branch.updatedAt || serverTimestamp(),
     });
+    await notifyAdmins("branch_change", `Branch ${branch.name} was created or updated.`, branch.branchId);
   } catch (error) {
     console.error("Error creating branch:", error);
     throw error;
@@ -102,6 +104,7 @@ export const updateBranch = async (
       ...updates,
       updatedAt: serverTimestamp(),
     });
+    await notifyAdmins("branch_change", `Branch ${branchId} was updated.`, branchId);
   } catch (error) {
     console.error("Error updating branch:", error);
     throw error;

@@ -7,6 +7,7 @@ import { auth } from '../../firebase/firebase'
 import { BRANCH_CATALOG } from '../../database/branchCatalog'
 import { getUserById } from '../../database/services/userService'
 import { getBranchImage } from '../../utils/branchLocation'
+import { NotificationBell } from '../../components/NotificationBell'
 
 const { height } = Dimensions.get('window')
 
@@ -142,8 +143,7 @@ const home = () => {
           />
           <Text style={[styles.brandName, styles.headerElementOffset]}>WashWise</Text>
           <TouchableOpacity accessibilityLabel="Notifications" style={[styles.bellButton, styles.headerElementOffset]}>
-            <Ionicons name="notifications-outline" size={22} color="#2563EB" />
-            <View style={styles.bellDot} />
+            <NotificationBell role="customer" color="#2563EB" />
           </TouchableOpacity>
         </View>
 

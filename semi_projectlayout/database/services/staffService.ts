@@ -12,6 +12,7 @@ import {
 
 import { db } from "../../firebase/firebase";
 import { StaffAccount } from "../models/StaffAccount";
+import { notifyAdmins } from "./notificationService";
 
 const staffAccountsRef = collection(db, "staffAccounts");
 
@@ -91,6 +92,7 @@ export const updateStaffStatus = async (
   try {
     const staffDoc = doc(db, "staffAccounts", staffId);
     await updateDoc(staffDoc, { isActive });
+    await notifyAdmins("staff_change", `Staff account ${staffId} was ${isActive ? "activated" : "deactivated"}.`);
   } catch (error) {
     console.error("Error updating staff status:", error);
     throw error;

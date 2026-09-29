@@ -66,7 +66,8 @@ const newOrder = () => ({ customerId: "customer", branchId: "branch-a",
   createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 const payment = () => ({ orderId: "received-a", customerId: "customer", branchId: "branch-a",
   staffId: "staff-a", amountCollected: 150, status: "verified", verifiedAt: serverTimestamp() });
-const notification = () => ({ userId: "customer", orderId: "received-a", type: "order_ready",
+const notification = () => ({ notificationId: "notice-a", userId: "customer", recipientRole: "customer", recipientScope: "user",
+  branchId: "branch-a", orderId: "received-a", target: "order", type: "order_ready",
   message: "Your laundry is ready for pickup.", isRead: false, createdAt: serverTimestamp() });
 async function main() {
   for (const id of ["branch-a", "branch-b"]) await seed("branches/" + id, branch(id));

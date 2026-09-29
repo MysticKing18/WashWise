@@ -1,8 +1,7 @@
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router'
-import { Alert } from 'react-native'
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth } from '../firebase/firebase'
 import { createUser } from '../database/services/userService'
@@ -16,41 +15,56 @@ const register = () => {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleRegister = async () => {
     const trimmedName = fullName.trim()
     const trimmedEmail = email.trim().toLowerCase()
     const trimmedPhone = phoneNumber.trim()
 
+    setErrorMessage('')
     if (!trimmedName || !trimmedEmail || !trimmedPhone || !password || !confirmPassword) {
-      Alert.alert('Missing information', 'Please complete all fields.')
+      setErrorMessage('Please complete all required fields.')
       return
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Password mismatch', 'Passwords do not match.')
+      setErrorMessage('Passwords do not match.')
       return
     }
 
+    if (!trimmedEmail.includes('@')) {
+      setErrorMessage('Enter a valid email address.')
+      return
+    }
+
+    setLoading(true)
+    let createdAuthUser = false
     try {
       const credential = await createUserWithEmailAndPassword(auth, trimmedEmail, password)
+      createdAuthUser = true
       await createUser({
         userId: credential.user.uid,
         fullName: trimmedName,
         email: trimmedEmail,
         phone: trimmedPhone,
       })
-      await signOut(auth)
-      Alert.alert('Account created', 'Your account is ready. Please log in.', [
-        { text: 'Continue', onPress: () => router.replace('/login') },
-      ])
+      router.replace('/insideapp/home')
     } catch (error: any) {
-      const message = error?.code === 'auth/email-already-in-use'
-        ? 'That email is already registered.'
-        : error?.code === 'auth/weak-password'
-          ? 'Your password is too weak.'
-          : 'Registration failed. Please try again.'
-      Alert.alert('Registration failed', message)
+      if (createdAuthUser && auth.currentUser) {
+        try { await signOut(auth) } catch { /* Keep the registration error visible if cleanup fails. */ }
+      }
+      const messages: Record<string, string> = {
+        'auth/email-already-in-use': 'That email is already registered.',
+        'auth/weak-password': 'Your password is too weak. Use at least 6 characters.',
+        'auth/invalid-email': 'Enter a valid email address.',
+        'auth/network-request-failed': 'Unable to connect. Check your internet connection and try again.',
+        'permission-denied': 'Your account was created, but the customer profile could not be saved. Try again or contact support.',
+      }
+      setErrorMessage(messages[error?.code] || 'Registration failed. Please check your details and try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -84,7 +98,8 @@ const register = () => {
                 placeholder="Juan Dela Cruz"
                 placeholderTextColor="#9CA3AF"
                 value={fullName}
-                onChangeText={setFullName}
+                onChangeText={(value) => { setFullName(value); setErrorMessage('') }}
+                editable={!loading}
                 autoCapitalize="words"
               />
             </View>
@@ -96,7 +111,8 @@ const register = () => {
                 placeholder="09XXXXXXXXX"
                 placeholderTextColor="#9CA3AF"
                 value={phoneNumber}
-                onChangeText={setPhoneNumber}
+                onChangeText={(value) => { setPhoneNumber(value); setErrorMessage('') }}
+                editable={!loading}
                 keyboardType="phone-pad"
               />
             </View>
@@ -109,7 +125,8 @@ const register = () => {
               placeholder="you@example.com"
               placeholderTextColor="#9CA3AF"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => { setEmail(value); setErrorMessage('') }}
+              editable={!loading}
               autoCapitalize="none"
               keyboardType="email-address"
             />
@@ -124,7 +141,8 @@ const register = () => {
                 placeholder="Create a password"
                 placeholderTextColor="#9CA3AF"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(value) => { setPassword(value); setErrorMessage('') }}
+                editable={!loading}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity
@@ -149,7 +167,8 @@ const register = () => {
                 placeholder="Re-enter your password"
                 placeholderTextColor="#9CA3AF"
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(value) => { setConfirmPassword(value); setErrorMessage('') }}
+                editable={!loading}
                 secureTextEntry={!showConfirmPassword}
               />
               <TouchableOpacity
@@ -166,8 +185,11 @@ const register = () => {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}>
-            <Text style={styles.primaryButtonText}>Sign up</Text>
+          {!!errorMessage && <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text>}
+
+          <TouchableOpacity disabled={loading} style={[styles.primaryButton, loading && styles.disabled]} onPress={() => void handleRegister()}>
+            {loading && <ActivityIndicator size="small" color="#FFFFFF" />}
+            <Text style={styles.primaryButtonText}>{loading ? 'Creating account...' : 'Sign up'}</Text>
           </TouchableOpacity>
 
           <View style={styles.footer}>
@@ -307,4 +329,14 @@ const styles = StyleSheet.create({
     color: '#4898e4',
     fontWeight: '700',
   },
+  error: {
+    color: '#AF3546',
+    backgroundColor: '#FFF0F1',
+    borderRadius: 6,
+    padding: 10,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  disabled: { opacity: 0.6 },
 })
