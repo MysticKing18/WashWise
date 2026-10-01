@@ -44,7 +44,7 @@ function BranchCard({ branch, onSelect, popular = false }: BranchCardProps) {
           </View>
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={12} color="#5F6B7A" />
-            <Text style={styles.branchAddress} numberOfLines={2}>{branch.address}</Text>
+            <Text style={styles.branchAddress} numberOfLines={3}>{branch.address}</Text>
           </View>
           <View style={styles.metaRow}>
             <Ionicons name="business-outline" size={12} color="#5F6B7A" />
@@ -220,49 +220,328 @@ export default function Branches() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#E3F4FF' },
-  safeArea: { flex: 1 },
-  scrollView: { flex: 1 },
-  content: { width: '100%', maxWidth: 420, alignSelf: 'center', paddingHorizontal: 9, paddingTop: 4, paddingBottom: 12 },
-  bubble: { position: 'absolute', opacity: 0.35 },
-  topBubble: { width: 80, height: 80, top: 20, left: -38 },
-  rightBubble: { width: 130, height: 130, top: 90, right: -46 },
-  bottomBubble: { width: 145, height: 145, bottom: 74, left: -55 },
-  topBar: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backButton: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  topBarSpacer: { width: 30 },
-  title: { flex: 1, fontSize: 14, fontWeight: '700', color: '#075191', textAlign: 'left' },
-  subtitle: { fontSize: 9, lineHeight: 13, color: '#5F6B7A', marginBottom: 8 },
-  searchBox: { height: 27, flexDirection: 'row', alignItems: 'center', borderRadius: 5, borderWidth: 1, borderColor: '#C5D8E5', paddingHorizontal: 7, backgroundColor: 'rgba(255,255,255,0.94)' },
-  searchInput: { flex: 1, minWidth: 0, marginLeft: 6, fontSize: 8, color: '#173D5A', paddingVertical: 4 },
-  clearButton: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-  branchCard: { height: 80, marginTop: 7, flexDirection: 'row', alignItems: 'center', borderRadius: 7, padding: 5, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D2DCE3', shadowColor: '#6B8798', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
-  selectBranch: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  branchPhotoWrap: { width: 67, height: 62, overflow: 'hidden', borderRadius: 5, backgroundColor: '#D5E8F3' },
-  branchPhoto: { width: '100%', height: '100%' },
-  branchInfo: { flex: 1, minWidth: 0, paddingHorizontal: 7 },
-  branchTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  branchName: { flex: 1, fontSize: 10, lineHeight: 13, fontWeight: '800', color: '#075191' },
-  popularBadge: { borderRadius: 5, backgroundColor: '#536CFF', paddingHorizontal: 5, paddingVertical: 1 },
-  popularText: { fontSize: 6, fontWeight: '700', color: '#FFFFFF' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  branchAddress: { flex: 1, fontSize: 7, lineHeight: 9, color: '#5F6B7A' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
-  metaText: { flexShrink: 1, fontSize: 7, color: '#5F6B7A' },
-  openDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#1CA65C', marginLeft: 2 },
-  openText: { fontSize: 7, fontWeight: '700', color: '#1CA65C' },
-  stateCard: { backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 8, paddingHorizontal: 24, paddingVertical: 25, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: '#D8EAF5' },
-  stateTitle: { fontSize: 17, lineHeight: 24, fontWeight: '700', color: '#244D6A', marginTop: 14, textAlign: 'center' },
-  stateMessage: { fontSize: 13, lineHeight: 20, color: '#688399', marginTop: 6, textAlign: 'center' },
-  retryButton: { minHeight: 44, justifyContent: 'center', backgroundColor: '#0877C8', paddingHorizontal: 22, borderRadius: 12, marginTop: 18 },
-  retryLabel: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  helpRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: 4, marginTop: 1 },
-  helpText: { flex: 1, fontSize: 12, lineHeight: 18, color: '#688399' },
-  navSafeArea: { backgroundColor: 'rgba(255,255,255,0.97)', borderTopWidth: 1, borderTopColor: '#D8EAF5' },
-  bottomNav: { minHeight: 58, width: '100%', maxWidth: 420, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingTop: 4, paddingBottom: 3 },
-  navItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
-  activeNavIcon: { width: 46, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#E7F5FE' },
-  navLabel: { fontSize: 10, color: '#64748B', marginTop: 3 },
-  activeNavLabel: { color: '#2563EB', fontWeight: '700' },
-  pressed: { opacity: 0.72 },
+  screen: {
+    flex: 1,
+    backgroundColor: '#E3F4FF',
+  },
+
+  safeArea: {
+    flex: 1,
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
+  content: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 16,
+  },
+
+  bubble: {
+    position: 'absolute',
+    opacity: 0.35,
+  },
+
+  topBubble: {
+    width: 80,
+    height: 80,
+    top: 20,
+    left: -38,
+  },
+
+  rightBubble: {
+    width: 130,
+    height: 130,
+    top: 90,
+    right: -46,
+  },
+
+  bottomBubble: {
+    width: 145,
+    height: 145,
+    bottom: 74,
+    left: -55,
+  },
+
+  topBar: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  backButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  topBarSpacer: {
+    width: 36,
+  },
+
+  title: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#075191',
+    textAlign: 'left',
+  },
+
+  subtitle: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#5F6B7A',
+    marginBottom: 10,
+  },
+
+  searchBox: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#C5D8E5',
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+  },
+
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 8,
+    fontSize: 11,
+    color: '#173D5A',
+    paddingVertical: 4,
+  },
+
+  clearButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  branchCard: {
+    minHeight: 102,
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    padding: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D2DCE3',
+    shadowColor: '#756b98',
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+
+  selectBranch: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  branchPhotoWrap: {
+    width: 82,
+    height: 78,
+    overflow: 'hidden',
+    borderRadius: 7,
+    backgroundColor: '#D5E8F3',
+  },
+
+  branchPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+
+  branchInfo: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 9,
+  },
+
+  branchTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+
+  branchName: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+    color: '#075191',
+  },
+
+  popularBadge: {
+    borderRadius: 6,
+    backgroundColor: '#536CFF',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+
+  popularText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+  },
+
+  branchAddress: {
+    flex: 1,
+    fontSize: 10,
+    lineHeight: 14,
+    color: '#5F6B7A',
+  },
+
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 5,
+  },
+
+  metaText: {
+    flexShrink: 1,
+    fontSize: 9,
+    lineHeight: 13,
+    color: '#5F6B7A',
+  },
+
+  openDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#1CA65C',
+    marginLeft: 2,
+  },
+
+  openText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#1CA65C',
+  },
+
+  stateCard: {
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 25,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#D8EAF5',
+  },
+
+  stateTitle: {
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '700',
+    color: '#244D6A',
+    marginTop: 14,
+    textAlign: 'center',
+  },
+
+  stateMessage: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#688399',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+
+  retryButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    backgroundColor: '#0877C8',
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    marginTop: 18,
+  },
+
+  retryLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  helpRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    paddingHorizontal: 4,
+    marginTop: 1,
+  },
+
+  helpText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#688399',
+  },
+
+  navSafeArea: {
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    borderTopWidth: 1,
+    borderTopColor: '#D8EAF5',
+  },
+
+  bottomNav: {
+    minHeight: 58,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 4,
+    paddingBottom: 3,
+  },
+
+  navItem: {
+    flex: 1,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  activeNavIcon: {
+    width: 46,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#E7F5FE',
+  },
+
+  navLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 3,
+  },
+
+  activeNavLabel: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+
+  pressed: {
+    opacity: 0.72,
+  },
 })

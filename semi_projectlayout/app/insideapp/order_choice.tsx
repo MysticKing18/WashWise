@@ -258,6 +258,7 @@ export default function OrderChoice() {
               </> : <>
                 <Text style={styles.summaryNote}>Do you wish to finalize and send this order to the selected branch?</Text>
                 <Text style={styles.summaryNotice}>Staff will verify the weight and final price at drop-off. Payment is made in person at pickup.</Text>
+                <Text style={styles.draftPolicyNotice}>Draft policy reminder for review: Please bring your laundry to the selected branch, pay according to the confirmed final price, and note that cancellation is available only while the order is Pending Drop-off.</Text>
                 {!!submitError && <Text accessibilityRole="alert" style={styles.submitError}>{submitError}</Text>}
                 <View style={styles.summaryActions}>
                   <Pressable accessibilityRole="button" disabled={finalizing} onPress={() => setShowSummary(false)} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
@@ -338,6 +339,7 @@ const styles = StyleSheet.create({
   summaryAmount: { marginTop: 16, color: '#0575EC', fontSize: 32, fontWeight: '700' },
   summaryNote: { marginTop: 14, color: '#527B9A', fontSize: 14, lineHeight: 21 },
   summaryNotice: { marginTop: 12, color: '#527B9A', fontSize: 12, lineHeight: 18 },
+  draftPolicyNotice: { marginTop: 12, padding: 9, borderRadius: 7, color: '#8A5A00', backgroundColor: '#FFF4D6', borderWidth: 1, borderColor: '#F0D58A', fontSize: 11, lineHeight: 17 },
   summaryButton: { marginTop: 22 },
   summaryActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
   cancelButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#8BBFE3', backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 13 },

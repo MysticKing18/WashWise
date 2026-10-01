@@ -5,6 +5,8 @@ const branchImages = {
   Laundry1: require('../assets/img/Laundry1.png'),
   Laundry2: require('../assets/img/Laundry2.png'),
   Laundry3: require('../assets/img/Laundry3.png'),
+  Laundry4: require('../assets/img/Laundry4.png'),
+  Laundry5: require('../assets/img/Laundry5.png'),
 } as const
 
 export const getBranchImage = (branch: Branch) => {

@@ -13,6 +13,7 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { db, storage } from "../../firebase/firebase";
 import { User } from "../models/User";
+import { CURRENT_TERMS_VERSION } from "../../config/policies";
 
 const usersRef = collection(db, "users");
 
@@ -21,6 +22,7 @@ export type NewUser = {
   fullName: string;
   email: string;
   phone?: string;
+  termsVersion: string;
 };
 
 export type EditableUserProfile = {
@@ -40,6 +42,8 @@ export const createUser = async (user: NewUser): Promise<void> => {
       phone: user.phone || "",
       createdAt: serverTimestamp(),
       isActive: true,
+      termsVersion: user.termsVersion || CURRENT_TERMS_VERSION,
+      termsAcceptedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error("Error creating user:", error);

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router'
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth } from '../firebase/firebase'
 import { createUser } from '../database/services/userService'
+import { CURRENT_TERMS_VERSION } from '../config/policies'
 
 const register = () => {
   const router = useRouter()
@@ -17,6 +18,7 @@ const register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const handleRegister = async () => {
     const trimmedName = fullName.trim()
@@ -31,6 +33,11 @@ const register = () => {
 
     if (password !== confirmPassword) {
       setErrorMessage('Passwords do not match.')
+      return
+    }
+
+    if (!termsAccepted) {
+      setErrorMessage('You must agree to the Terms and Conditions before creating an account.')
       return
     }
 
@@ -49,6 +56,7 @@ const register = () => {
         fullName: trimmedName,
         email: trimmedEmail,
         phone: trimmedPhone,
+        termsVersion: CURRENT_TERMS_VERSION,
       })
       router.replace('/insideapp/home')
     } catch (error: any) {
@@ -184,6 +192,11 @@ const register = () => {
               </TouchableOpacity>
             </View>
           </View>
+
+          <TouchableOpacity style={styles.termsRow} activeOpacity={0.8} onPress={() => setTermsAccepted((accepted) => !accepted)} disabled={loading}>
+            <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>{termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}</View>
+            <Text style={styles.termsText}>I agree to the <Text style={styles.termsLink} onPress={() => router.push({ pathname: '/policies', params: { section: 'terms' } })}>Terms and Conditions</Text></Text>
+          </TouchableOpacity>
 
           {!!errorMessage && <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text>}
 
@@ -339,4 +352,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   disabled: { opacity: 0.6 },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 2, marginBottom: 16 },
+  checkbox: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 8, borderWidth: 1, borderColor: '#B8C7D3', borderRadius: 4, backgroundColor: '#FFFFFF' },
+  checkboxChecked: { borderColor: '#298FDD', backgroundColor: '#298FDD' },
+  termsText: { flex: 1, color: '#5F7180', fontSize: 12, lineHeight: 18 },
+  termsLink: { color: '#298FDD', fontWeight: '700' },
 })

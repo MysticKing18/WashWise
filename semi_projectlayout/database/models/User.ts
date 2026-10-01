@@ -8,4 +8,6 @@ export interface User {
   photoURL?: string;
   createdAt: Timestamp;
   isActive: boolean;
+  termsVersion?: string;
+  termsAcceptedAt?: Timestamp;
 }

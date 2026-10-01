@@ -238,10 +238,22 @@ const profile = () => {
               </>
             )}
           </View>
-
           <TouchableOpacity style={styles.editButton} activeOpacity={0.9} onPress={isEditing ? handleSave : handleEdit} disabled={isSaving}>
             <Ionicons name={isEditing ? 'checkmark' : 'pencil'} size={14} color="#FFFFFF" />
             <Text style={styles.editButtonText}>{isSaving ? 'Saving...' : isEditing ? 'Save Profile' : 'Edit Profile'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.policyLinks}>
+          <TouchableOpacity style={styles.policyRow} onPress={() => router.push({ pathname: '/policies', params: { section: 'terms' } })}>
+            <View style={styles.policyIcon}><Ionicons name="document-text-outline" size={18} color="#0877C8" /></View>
+            <Text style={styles.policyText}>Terms and Conditions</Text>
+            <Ionicons name="chevron-forward" size={17} color="#53779A" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.policyRow} onPress={() => router.push({ pathname: '/policies', params: { section: 'privacy' } })}>
+            <View style={styles.policyIcon}><Ionicons name="shield-checkmark-outline" size={18} color="#0877C8" /></View>
+            <Text style={styles.policyText}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={17} color="#53779A" />
           </TouchableOpacity>
         </View>
 
@@ -331,13 +343,13 @@ const styles = StyleSheet.create({
   },
   card: {
     marginTop: 18,
-    minHeight: 104,
+    minHeight: 116,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#E3ECF5',
     shadowColor: '#A7BCD5',
@@ -348,12 +360,12 @@ const styles = StyleSheet.create({
   },
   avatarWrap: {
     position: 'relative',
-    marginRight: 10,
+    marginRight: 14,
   },
   avatarBadge: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: '#5CB2FF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -369,9 +381,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#0EA5E9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -384,19 +396,19 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   name: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '800',
     color: '#1F2937',
   },
   email: {
-    marginTop: 3,
-    fontSize: 10,
+    marginTop: 4,
+    fontSize: 11,
     fontWeight: '500',
     color: '#4B5563',
   },
   phone: {
-    marginTop: 3,
-    fontSize: 10,
+    marginTop: 4,
+    fontSize: 11,
     fontWeight: '500',
     color: '#4B5563',
   },
@@ -405,53 +417,77 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C9DCEB',
     borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-    marginBottom: 6,
-    fontSize: 11,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
+    fontSize: 13,
     color: '#1F2937',
     backgroundColor: '#FFFFFF',
   },
   editButton: {
     position: 'absolute',
-    right: 10,
-    bottom: 10,
+    right: 14,
+    bottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0F7AD8',
-    borderRadius: 6,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-    gap: 3,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 5,
   },
   editButtonText: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
   },
+  policyLinks: {
+    marginTop: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DFEAF3',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  policyRow: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E7F0F6',
+  },
+  policyIcon: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9,
+    backgroundColor: '#E8F5FF',
+  },
+  policyText: { flex: 1, marginLeft: 10, color: '#1F2937', fontSize: 13, lineHeight: 18, fontWeight: '700' },
   logoutButton: {
     marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.72)',
     borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#DFEAF3',
   },
   logoutIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     backgroundColor: '#FDECEC',
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoutText: {
-    marginLeft: 8,
-    fontSize: 11,
+    marginLeft: 10,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1F2937',
   },
@@ -465,7 +501,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   bottomNav: {
-    height: 60,
+    minHeight: 68,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
@@ -474,13 +510,13 @@ const styles = StyleSheet.create({
     borderTopColor: '#D9E6EE',
   },
   navItem: {
-    minWidth: 52,
+    minWidth: 60,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navLabel: {
-    marginTop: 3,
-    fontSize: 10,
+    marginTop: 4,
+    fontSize: 11,
     color: '#64748B',
   },
   activeNavLabel: {

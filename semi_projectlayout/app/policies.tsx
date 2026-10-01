@@ -1,0 +1,18 @@
+import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
+import { useLocalSearchParams, useRouter } from 'expo-router'
+import React from 'react'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { privacySections, termsSections, CURRENT_TERMS_VERSION } from '../config/policies'
+
+export default function Policies() {
+  const router = useRouter()
+  const { section } = useLocalSearchParams<{ section?: string }>()
+  const isPrivacy = section === 'privacy'
+  const sections = isPrivacy ? privacySections : termsSections
+  const title = isPrivacy ? 'Privacy Policy' : 'Terms and Conditions'
+
+  return <View style={styles.screen}><LinearGradient colors={['#BFEAFD', '#DFF5FF', '#FFFFFF']} style={StyleSheet.absoluteFill} /><View style={styles.header}><Pressable onPress={() => router.back()} accessibilityLabel="Go back" style={styles.back}><Ionicons name="arrow-back" size={21} color="#0877C8" /></Pressable><Text style={styles.title}>{title}</Text><View style={styles.back} /></View><View style={styles.switcher}><Pressable onPress={() => router.replace('/policies?section=terms')} style={[styles.switchButton, !isPrivacy && styles.switchActive]}><Text style={[styles.switchText, !isPrivacy && styles.switchTextActive]}>Terms</Text></Pressable><Pressable onPress={() => router.replace('/policies?section=privacy')} style={[styles.switchButton, isPrivacy && styles.switchActive]}><Text style={[styles.switchText, isPrivacy && styles.switchTextActive]}>Privacy</Text></Pressable></View><ScrollView contentContainerStyle={styles.content}><View style={styles.draftBanner}><Ionicons name="document-text-outline" size={17} color="#8A5A00" /><Text style={styles.draftText}>DRAFT FOR REVIEW - Version {CURRENT_TERMS_VERSION}</Text></View><Text style={styles.intro}>Please review this policy information before continuing to use WashWise.</Text>{sections.map((item) => <View key={item.title} style={styles.section}><Text style={styles.sectionTitle}>{item.title}</Text><Text style={styles.body}>{item.body}</Text></View>)}</ScrollView></View>
+}
+
+const styles = StyleSheet.create({ screen: { flex: 1, backgroundColor: '#FFFFFF' }, header: { height: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, backgroundColor: 'rgba(255,255,255,0.92)', borderBottomWidth: 1, borderBottomColor: '#D3E3EC' }, back: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }, title: { color: '#075191', fontSize: 16, fontWeight: '800' }, switcher: { flexDirection: 'row', gap: 8, padding: 12, paddingBottom: 4 }, switchButton: { flex: 1, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: '#B9D9EC', backgroundColor: '#FFFFFF' }, switchActive: { backgroundColor: '#0877D1', borderColor: '#0877D1' }, switchText: { color: '#597587', fontSize: 10, fontWeight: '700' }, switchTextActive: { color: '#FFFFFF' }, content: { padding: 12, paddingBottom: 30 }, draftBanner: { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 10, borderRadius: 7, backgroundColor: '#FFF4D6', borderWidth: 1, borderColor: '#F0D58A' }, draftText: { flex: 1, color: '#8A5A00', fontSize: 9, fontWeight: '800' }, intro: { marginTop: 14, color: '#527B9A', fontSize: 11, lineHeight: 17 }, section: { marginTop: 16, padding: 13, borderRadius: 10, borderWidth: 1, borderColor: '#D3E3EC', backgroundColor: 'rgba(255,255,255,0.92)' }, sectionTitle: { color: '#075191', fontSize: 12, fontWeight: '800' }, body: { marginTop: 7, color: '#395E73', fontSize: 11, lineHeight: 18 } })

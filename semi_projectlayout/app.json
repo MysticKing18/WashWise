@@ -1,7 +1,7 @@
 {
   "expo": {
     "scheme": "semi_projectlayout",
-    "name": "Prac_reactnative",
+    "name": "WashWise",
     "slug": "semi_projectlayout",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,12 +14,21 @@
       "backgroundColor": "#E6F4FE"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-router",
       "expo-status-bar",
       "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#E6F4FE",
+          "image": "./assets/img/logo.png",
+          "imageWidth": 220,
+          "resizeMode": "contain"
+        }
+      ],
       [
         "expo-image-picker",
         {

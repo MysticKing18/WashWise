@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Animated, Dimensions, Image, ImageSourcePropType, Linking, ScrollView, StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ImageStyle } from 'react-native'
 import { auth } from '../../firebase/firebase'
 import { BRANCH_CATALOG } from '../../database/branchCatalog'
@@ -48,7 +48,28 @@ const FloatingBubble = ({ source, size, style, duration = 4000, delay = 0, opaci
 const home = () => {
   const router = useRouter()
   const [firstName, setFirstName] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const mainBranch = BRANCH_CATALOG[0]
+
+  const filteredBranches = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    if (!query) return BRANCH_CATALOG
+
+    return BRANCH_CATALOG.filter((branch) =>
+      [
+        branch.name,
+        branch.address,
+        branch.location?.city,
+        branch.location?.province,
+        branch.location?.barangay,
+        branch.location?.landmark,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query),
+    )
+  }, [searchQuery])
 
   const openMainBranchMap = async () => {
     const query = mainBranch.location?.mapQuery || `${mainBranch.name}, ${mainBranch.address}`
@@ -153,10 +174,22 @@ const home = () => {
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={20} color="#9CA3AF" />
           <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
             style={styles.searchInput}
             placeholder="Search laundry shop..."
             placeholderTextColor="#9CA3AF"
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            accessibilityLabel="Search laundry shops"
+            onSubmitEditing={() => router.push('/insideapp/branches')}
           />
+          {!!searchQuery && (
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setSearchQuery('')} style={styles.clearSearchButton}>
+              <Ionicons name="close-circle" size={18} color="#7C8FA3" />
+            </TouchableOpacity>
+          )}
         </View>
 
         <LinearGradient
@@ -191,30 +224,44 @@ const home = () => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="View Main Branch details"
-          style={styles.branchCard}
-          activeOpacity={0.85}
-          onPress={() => router.push({ pathname: '/insideapp/order_details', params: { branchId: mainBranch.branchId } })}
-        >
-          <View style={styles.branchImagePlaceholder}>
-            <Image source={getBranchImage(mainBranch)} style={styles.branchImage} resizeMode="cover" />
+        {searchQuery.trim() && filteredBranches.length === 0 ? (
+          <View style={styles.emptyResultsCard}>
+            <Ionicons name="search-outline" size={28} color="#7C8FA3" />
+            <Text style={styles.emptyResultsTitle}>No matching shops</Text>
+            <Text style={styles.emptyResultsText}>Try another branch name, city, or landmark.</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setSearchQuery('')} style={styles.clearResultsButton}>
+              <Text style={styles.clearResultsText}>Clear search</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.branchDetails}>
-            <Text style={styles.branchName}>Main Branch</Text>
-            <View style={styles.branchAddressRow}>
-              <Ionicons name="location-outline" size={12} color="#6B7280" />
-              <Text style={styles.branchAddress} numberOfLines={1}>{mainBranch.address}</Text>
-            </View>
-            <View style={styles.branchMeta}>
-              <Text style={styles.branchDistance}>{mainBranch.location?.landmark}</Text>
-              <View style={styles.openDot} />
-              <Text style={styles.openLabel}>Open</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
+        ) : (
+          (searchQuery.trim() ? filteredBranches : [mainBranch]).map((branch) => (
+            <TouchableOpacity
+              key={branch.branchId}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${branch.name} details`}
+              style={styles.branchCard}
+              activeOpacity={0.85}
+              onPress={() => router.push({ pathname: '/insideapp/order_details', params: { branchId: branch.branchId } })}
+            >
+              <View style={styles.branchImagePlaceholder}>
+                <Image source={getBranchImage(branch)} style={styles.branchImage} resizeMode="cover" />
+              </View>
+              <View style={styles.branchDetails}>
+                <Text style={styles.branchName}>{searchQuery.trim() ? branch.name : 'Main Branch'}</Text>
+                <View style={styles.branchAddressRow}>
+                  <Ionicons name="location-outline" size={12} color="#6B7280" />
+                  <Text style={styles.branchAddress} numberOfLines={1}>{branch.address}</Text>
+                </View>
+                <View style={styles.branchMeta}>
+                  <Text style={styles.branchDistance}>{branch.location?.landmark}</Text>
+                  <View style={styles.openDot} />
+                  <Text style={styles.openLabel}>Open</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          ))
+        )}
 
         <View style={styles.mapPlaceholder}>
           <Ionicons name="map-outline" size={30} color="#9CA3AF" />
@@ -310,6 +357,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   searchInput: { flex: 1, marginLeft: 8, fontSize: 13, color: '#111827' },
+  clearSearchButton: { marginLeft: 8, justifyContent: 'center', alignItems: 'center' },
+  emptyResultsCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    alignItems: 'center',
+    backgroundColor: '#F8FBFF',
+    borderWidth: 1,
+    borderColor: '#DDEAF8',
+    borderRadius: 12,
+  },
+  emptyResultsTitle: { marginTop: 8, fontSize: 14, fontWeight: '700', color: '#111827' },
+  emptyResultsText: { marginTop: 4, fontSize: 11, color: '#6B7280', textAlign: 'center' },
+  clearResultsButton: {
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#2563EB',
+  },
+  clearResultsText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   promoBanner: {
     height: 120,
     marginHorizontal: 16,
@@ -361,16 +429,16 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 12,
   },
-  branchImagePlaceholder: { width: 68, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderRadius: 8, overflow: 'hidden' },
+  branchImagePlaceholder: { width: 78, height: 66, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderRadius: 8, overflow: 'hidden' },
   branchImage: { width: '100%', height: '100%' },
-  branchDetails: { flex: 1, marginLeft: 10 },
-  branchName: { fontSize: 13, fontWeight: '700', color: '#111827' },
-  branchAddressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 3 },
-  branchAddress: { fontSize: 11, color: '#6B7280' },
-  branchMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 5 },
-  branchDistance: { fontSize: 11, color: '#111827', fontWeight: '600' },
+  branchDetails: { flex: 1, minWidth: 0, marginLeft: 12 },
+  branchName: { fontSize: 14, lineHeight: 18, fontWeight: '700', color: '#111827' },
+  branchAddressRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4, gap: 4 },
+  branchAddress: { flex: 1, fontSize: 12, lineHeight: 16, color: '#6B7280' },
+  branchMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 5 },
+  branchDistance: { flexShrink: 1, fontSize: 12, lineHeight: 16, color: '#111827', fontWeight: '600' },
   openDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#16A34A' },
-  openLabel: { fontSize: 11, fontWeight: '700', color: '#16A34A' },
+  openLabel: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
   mapPlaceholder: {
     height: 96,
     marginHorizontal: 16,
@@ -380,14 +448,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderRadius: 12,
   },
-  mapButton: { position: 'absolute', right: 10, bottom: 10, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: '#2563EB' },
-  mapButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  mapButton: { position: 'absolute', right: 10, bottom: 10, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#2563EB' },
+  mapButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   quickActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, marginTop: 12 },
   actionButton: { flex: 1, alignItems: 'center', paddingVertical: 14, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12 },
-  actionIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  actionText: { fontSize: 12, fontWeight: '600', color: '#374151' },
-  bottomNav: { height: 64, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  actionIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
+  actionText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  bottomNav: { minHeight: 68, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
   navItem: { alignItems: 'center', justifyContent: 'center', minWidth: 60 },
-  navLabel: { marginTop: 3, fontSize: 10, color: '#64748B' },
+  navLabel: { marginTop: 4, fontSize: 11, color: '#64748B' },
   activeNavLabel: { color: '#2563EB', fontWeight: '700' },
 })
