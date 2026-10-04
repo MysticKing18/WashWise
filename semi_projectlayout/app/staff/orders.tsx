@@ -23,6 +23,7 @@ type ReviewModalProps = {
   order: Order | null
   customer: User | null
   branchName: string
+  staffName: string
   amount: string
   loading: boolean
   error: string
@@ -40,7 +41,7 @@ const labelFor = (status: OrderStatus) => status === 'pending_dropoff' ? 'Pendin
 const formatAmount = (amount?: number) => amount === undefined ? 'Not set' : `P${amount.toFixed(2)}`
 const nextAction = (status: OrderStatus): { label: string; next: OrderStatus } | null => status === 'pending_dropoff' ? { label: 'Review & Receive', next: 'received' } : status === 'received' ? { label: 'Mark Washing', next: 'washing' } : status === 'washing' ? { label: 'Mark Completed', next: 'completed' } : null
 
-function OrderReviewModal({ visible, order, customer, branchName, amount, loading, error, onAmountChange, onCancel, onReceive }: ReviewModalProps) {
+function OrderReviewModal({ visible, order, customer, branchName, staffName, amount, loading, error, onAmountChange, onCancel, onReceive }: ReviewModalProps) {
   if (!order) return null
   return <Modal transparent visible={visible} animationType="fade" onRequestClose={onCancel}>
     <View style={styles.modalOverlay}>
@@ -49,8 +50,9 @@ function OrderReviewModal({ visible, order, customer, branchName, amount, loadin
           <View style={styles.modalIcon}><Ionicons name="receipt-outline" size={28} color="#0877C8" /></View>
           <Text style={styles.modalTitle}>Review Drop-off</Text>
           <Text style={styles.modalSubtitle}>Verify the order before receiving it.</Text>
-          <View style={styles.detailGroup}><Text style={styles.detailLabel}>Customer</Text><Text style={styles.detailValue}>{customer?.fullName || order.customerId}</Text><Text style={styles.detailSecondary}>{customer?.email || 'Customer profile unavailable'}</Text>{customer?.phone ? <Text style={styles.detailSecondary}>{customer.phone}</Text> : null}</View>
-          <View style={styles.detailGroup}><Text style={styles.detailLabel}>Order and branch</Text><Text style={styles.detailValue}>{order.orderId}</Text><Text style={styles.detailSecondary}>{branchName}</Text></View>
+          <View style={styles.detailGroup}><Text style={styles.detailLabel}>Customer</Text><Text style={styles.detailValue}>{customer?.fullName?.trim() || 'Customer name unavailable'}</Text>{customer?.email ? <Text style={styles.detailSecondary}>{customer.email}</Text> : null}{customer?.phone ? <Text style={styles.detailSecondary}>{customer.phone}</Text> : null}</View>
+          <View style={styles.detailGroup}><Text style={styles.detailLabel}>Branch</Text><Text style={styles.detailValue}>{branchName}</Text><Text style={styles.detailSecondary}>Order reference: {order.orderId}</Text></View>
+          <View style={styles.detailGroup}><Text style={styles.detailLabel}>Receiving staff</Text><Text style={styles.detailValue}>{staffName}</Text></View>
           <View style={styles.detailGroup}><Text style={styles.detailLabel}>Selected service</Text><Text style={styles.detailValue}>{order.serviceType || 'Laundry service'}</Text><Text style={styles.detailSecondary}>{order.priority === 'rush' ? 'Rush priority' : 'Regular priority'}</Text></View>
           <View style={styles.detailGroup}><Text style={styles.detailLabel}>Laundry details</Text><Text style={styles.detailValue}>{order.laundryDetails || 'No additional details provided.'}</Text></View>
           <View style={styles.amountGroup}><Text style={styles.detailLabel}>Final amount</Text><TextInput value={amount} onChangeText={onAmountChange} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor="#94A4AE" style={styles.amountInput} /></View>
@@ -68,14 +70,15 @@ export default function StaffOrders() {
   const [branchName, setBranchName] = useState('Assigned Branch')
   const [branchId, setBranchId] = useState('')
   const [staffId, setStaffId] = useState('')
+  const [staffName, setStaffName] = useState('Staff name unavailable')
   const [branchStaff, setBranchStaff] = useState<string[]>([])
+  const [customers, setCustomers] = useState<Record<string, User | null>>({})
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-  const [customer, setCustomer] = useState<User | null>(null)
   const [reviewAmount, setReviewAmount] = useState('')
   const [reviewLoading, setReviewLoading] = useState(false)
   const [reviewError, setReviewError] = useState('')
@@ -88,10 +91,17 @@ export default function StaffOrders() {
     try {
       const profile = await getCurrentStaffProfile()
       const [branchOrders, branch, assignedStaff] = await Promise.all([getBranchOrders(profile.branchId), getBranchById(profile.branchId), getStaffByBranch(profile.branchId)])
+      const customerEntries = await Promise.all(
+        [...new Set(branchOrders.map((order) => order.customerId))].map(async (customerId) =>
+          [customerId, await getUserById(customerId).catch(() => null)] as const
+        )
+      )
       setBranchId(profile.branchId)
       setStaffId(profile.staffId)
-      setBranchName(branch?.name || profile.branchId)
-      setBranchStaff(assignedStaff.filter((staff) => staff.isActive && staff.role === 'staff').map((staff) => staff.fullName))
+      setStaffName(profile.fullName?.trim() || 'Staff name unavailable')
+      setBranchName(branch?.name?.trim() || 'Branch name unavailable')
+      setBranchStaff(assignedStaff.filter((staff) => staff.isActive && staff.role === 'staff').map((staff) => staff.fullName?.trim() || 'Staff name unavailable'))
+      setCustomers(Object.fromEntries(customerEntries))
       setOrders(branchOrders)
     } catch {
       setError('Could not load orders for your assigned branch. Check your connection and try again.')
@@ -103,21 +113,21 @@ export default function StaffOrders() {
   useEffect(() => { void loadOrders() }, [])
 
   const visibleOrders = useMemo(() => orders.filter((order) => {
-    const searchable = `${order.orderId} ${order.customerId} ${order.serviceType || ''}`.toLowerCase()
+    const searchable = `${order.orderId} ${order.customerId} ${customers[order.customerId]?.fullName || ''} ${order.serviceType || ''}`.toLowerCase()
     return searchable.includes(search.trim().toLowerCase()) && (filter === 'all' || order.status === filter)
-  }), [filter, orders, search])
+  }), [customers, filter, orders, search])
 
-  const openReview = async (order: Order) => {
+  const customer = selectedOrder ? customers[selectedOrder.customerId] || null : null
+
+  const openReview = (order: Order) => {
     setSelectedOrder(order)
     setReviewAmount(String(order.confirmedPrice ?? order.estimatedPrice ?? ''))
     setReviewError('')
-    try { setCustomer(await getUserById(order.customerId)) } catch { setCustomer(null) }
   }
 
   const closeReview = () => {
     if (!reviewLoading) {
       setSelectedOrder(null)
-      setCustomer(null)
       setReviewError('')
     }
   }
@@ -177,7 +187,7 @@ export default function StaffOrders() {
     try { await signOut(auth); router.replace('/staff/login') } finally { setLoggingOut(false); setShowLogout(false) }
   }
 
-  return <View style={styles.screen}><LinearGradient colors={['#BEE9FF', '#F7FCFF', '#FFFFFF']} style={StyleSheet.absoluteFill} /><SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}><View style={styles.header}><Image source={require('../../assets/img/logo.png')} style={styles.logo} resizeMode="contain" /><View style={styles.heading}><Text style={styles.brand}>Branch Orders</Text><Text style={styles.role}>{branchName}</Text></View><Pressable onPress={() => void loadOrders()} accessibilityLabel="Refresh orders"><Ionicons name="refresh-outline" size={19} color="#0877C8" /></Pressable></View><Text style={styles.managers}>Managed by: {branchStaff.length ? branchStaff.join(', ') : 'No active branch staff assigned'}</Text><View style={styles.search}><Ionicons name="search-outline" size={16} color="#7590A1" /><TextInput value={search} onChangeText={setSearch} placeholder="Search order or customer" placeholderTextColor="#94A4AE" style={styles.searchInput} /></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{(['all', 'pending_dropoff', 'received', 'washing', 'completed', 'cancelled'] as Filter[]).map((value) => <Pressable key={value} onPress={() => setFilter(value)} style={[styles.filterButton, filter === value && styles.filterActive]}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{value === 'all' ? 'All' : labelFor(value)}</Text></Pressable>)}</ScrollView>{!!error && <Text style={styles.error}>{error}</Text>}{loading ? <Text style={styles.empty}>Loading branch orders...</Text> : visibleOrders.length === 0 ? <Text style={styles.empty}>No orders match this branch and filter.</Text> : visibleOrders.map((order) => { const action = nextAction(order.status); return <View key={order.orderId} style={styles.card}><View style={styles.icon}><Ionicons name="receipt" size={17} color="#0877C8" /></View><View style={styles.copy}><Text style={styles.id}>{order.orderId}</Text><Text style={styles.name}>{order.customerId}</Text><Text style={styles.meta}>{order.serviceType || 'Laundry service'} - {formatAmount(order.confirmedPrice ?? order.estimatedPrice)}</Text><View style={[styles.status, order.status === 'completed' ? styles.completed : order.status === 'cancelled' ? styles.cancelled : styles.processing]}><Text style={styles.statusText}>{labelFor(order.status)}</Text></View></View>{action && <Pressable disabled={updatingId === order.orderId} onPress={() => order.status === 'pending_dropoff' ? void openReview(order) : void changeStatus(order, action.next)} style={styles.action}><Text style={styles.actionText}>{action.label}</Text></Pressable>}{(order.status === 'pending_dropoff' || order.status === 'received') && <Pressable disabled={updatingId === order.orderId} onPress={() => void cancelStaffOrder(order)} style={styles.cancelAction}><Text style={styles.cancelActionText}>Cancel</Text></Pressable>}</View> })}</ScrollView><Nav active="orders" router={router} onLogout={() => setShowLogout(true)} /></SafeAreaView><OrderReviewModal visible={!!selectedOrder} order={selectedOrder} customer={customer} branchName={branchName} amount={reviewAmount} loading={reviewLoading} error={reviewError} onAmountChange={setReviewAmount} onCancel={closeReview} onReceive={() => void receiveOrder()} /><LogoutConfirmModal visible={showLogout} loading={loggingOut} onCancel={() => setShowLogout(false)} onConfirm={() => void handleLogout()} /></View>
+  return <View style={styles.screen}><LinearGradient colors={['#BEE9FF', '#F7FCFF', '#FFFFFF']} style={StyleSheet.absoluteFill} /><SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}><View style={styles.header}><Image source={require('../../assets/img/logo.png')} style={styles.logo} resizeMode="contain" /><View style={styles.heading}><Text style={styles.brand}>Branch Orders</Text><Text style={styles.role}>{branchName}</Text></View><Pressable onPress={() => void loadOrders()} accessibilityLabel="Refresh orders"><Ionicons name="refresh-outline" size={19} color="#0877C8" /></Pressable></View><Text style={styles.managers}>Managed by: {branchStaff.length ? branchStaff.join(', ') : 'No active branch staff assigned'}</Text><View style={styles.search}><Ionicons name="search-outline" size={16} color="#7590A1" /><TextInput value={search} onChangeText={setSearch} placeholder="Search order or customer" placeholderTextColor="#94A4AE" style={styles.searchInput} /></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{(['all', 'pending_dropoff', 'received', 'washing', 'completed', 'cancelled'] as Filter[]).map((value) => <Pressable key={value} onPress={() => setFilter(value)} style={[styles.filterButton, filter === value && styles.filterActive]}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{value === 'all' ? 'All' : labelFor(value)}</Text></Pressable>)}</ScrollView>{!!error && <Text style={styles.error}>{error}</Text>}{loading ? <Text style={styles.empty}>Loading branch orders...</Text> : visibleOrders.length === 0 ? <Text style={styles.empty}>No orders match this branch and filter.</Text> : visibleOrders.map((order) => { const action = nextAction(order.status); return <View key={order.orderId} style={styles.card}><View style={styles.icon}><Ionicons name="receipt" size={17} color="#0877C8" /></View><View style={styles.copy}><Text style={styles.id}>{order.orderId}</Text><Text style={styles.name}>{customers[order.customerId]?.fullName?.trim() || 'Customer name unavailable'}</Text><Text style={styles.meta}>{order.serviceType || 'Laundry service'} - {formatAmount(order.confirmedPrice ?? order.estimatedPrice)}</Text><View style={[styles.status, order.status === 'completed' ? styles.completed : order.status === 'cancelled' ? styles.cancelled : styles.processing]}><Text style={styles.statusText}>{labelFor(order.status)}</Text></View></View>{action && <Pressable disabled={updatingId === order.orderId} onPress={() => order.status === 'pending_dropoff' ? void openReview(order) : void changeStatus(order, action.next)} style={styles.action}><Text style={styles.actionText}>{action.label}</Text></Pressable>}{(order.status === 'pending_dropoff' || order.status === 'received') && <Pressable disabled={updatingId === order.orderId} onPress={() => void cancelStaffOrder(order)} style={styles.cancelAction}><Text style={styles.cancelActionText}>Cancel</Text></Pressable>}</View> })}</ScrollView><Nav active="orders" router={router} onLogout={() => setShowLogout(true)} /></SafeAreaView><OrderReviewModal visible={!!selectedOrder} order={selectedOrder} customer={customer} branchName={branchName} staffName={staffName} amount={reviewAmount} loading={reviewLoading} error={reviewError} onAmountChange={setReviewAmount} onCancel={closeReview} onReceive={() => void receiveOrder()} /><LogoutConfirmModal visible={showLogout} loading={loggingOut} onCancel={() => setShowLogout(false)} onConfirm={() => void handleLogout()} /></View>
 }
 
 const styles = StyleSheet.create({

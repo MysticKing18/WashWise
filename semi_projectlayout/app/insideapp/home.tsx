@@ -1,15 +1,24 @@
 import { Ionicons } from '@expo/vector-icons'
+import * as Location from 'expo-location'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useRouter } from 'expo-router'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Animated, Dimensions, Image, ImageSourcePropType, Linking, ScrollView, StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ImageStyle } from 'react-native'
+import { useFocusEffect, useRouter } from 'expo-router'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, Animated, Dimensions, Image, ImageSourcePropType, ScrollView, StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ImageStyle } from 'react-native'
 import { auth } from '../../firebase/firebase'
 import { BRANCH_CATALOG } from '../../database/branchCatalog'
+import type { Branch } from '../../database/models/Branch'
+import { subscribeToBranches } from '../../database/services/branchService'
 import { getUserById } from '../../database/services/userService'
-import { getBranchImage } from '../../utils/branchLocation'
+import { getBranchImage, getDistanceInKilometers, openBranchMap } from '../../utils/branchLocation'
 import { NotificationBell } from '../../components/NotificationBell'
 
 const { height } = Dimensions.get('window')
+
+type LocationState = 'loading' | 'ready' | 'permission-needed' | 'denied' | 'unavailable'
+
+const formatApproximateDistance = (distanceInKilometers: number) => distanceInKilometers < 1
+  ? `${Math.round(distanceInKilometers * 1000)} m away`
+  : `${distanceInKilometers.toFixed(distanceInKilometers < 10 ? 1 : 0)} km away`
 
 type FloatingBubbleProps = {
   source: ImageSourcePropType
@@ -49,13 +58,120 @@ const home = () => {
   const router = useRouter()
   const [firstName, setFirstName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const mainBranch = BRANCH_CATALOG[0]
+  const [branches, setBranches] = useState<Branch[]>(BRANCH_CATALOG)
+  const [nearestBranch, setNearestBranch] = useState<Branch | null>(null)
+  const [nearestDistance, setNearestDistance] = useState<number | null>(null)
+  const [locationState, setLocationState] = useState<LocationState>('loading')
+  const [locationMessage, setLocationMessage] = useState('Finding a nearby laundry shop...')
+  const branchesRef = useRef<Branch[]>(BRANCH_CATALOG)
+  const lastCoordinatesRef = useRef<{ latitude: number; longitude: number } | null>(null)
+
+  const mainBranch = branches.find((branch) => branch.branchId === BRANCH_CATALOG[0].branchId) || BRANCH_CATALOG[0]
+
+  useEffect(() => {
+    branchesRef.current = branches
+  }, [branches])
+
+  useEffect(() => subscribeToBranches(
+    (savedBranches) => setBranches(savedBranches),
+    () => setBranches(BRANCH_CATALOG),
+  ), [])
+
+  const updateNearestBranch = useCallback((latitude: number, longitude: number) => {
+    lastCoordinatesRef.current = { latitude, longitude }
+    const candidates = branchesRef.current
+      .filter((branch) => branch.isActive)
+      .map((branch) => ({ branch, distance: getDistanceInKilometers(latitude, longitude, branch) }))
+      .filter((candidate): candidate is { branch: Branch; distance: number } => candidate.distance !== null)
+      .sort((left, right) => left.distance - right.distance)
+    const nearest = candidates[0]
+    if (!nearest) {
+      setNearestBranch(null)
+      setNearestDistance(null)
+      setLocationState('unavailable')
+      setLocationMessage('Nearest-shop recommendations need branch coordinates. You can still browse all branches.')
+      return
+    }
+    setNearestBranch(nearest.branch)
+    setNearestDistance(nearest.distance)
+    setLocationState('ready')
+    setLocationMessage('')
+  }, [])
+
+  useEffect(() => {
+    const coordinates = lastCoordinatesRef.current
+    if (coordinates) updateNearestBranch(coordinates.latitude, coordinates.longitude)
+  }, [branches, updateNearestBranch])
+
+  useFocusEffect(useCallback(() => {
+    let active = true
+    let locationSubscription: Location.LocationSubscription | null = null
+
+    const askForLocation = () => new Promise<boolean>((resolve) => {
+      Alert.alert(
+        'Find a nearby laundry shop',
+        'WashWise uses your location only while this screen is open to recommend the closest active branch. You can browse branches manually if you prefer.',
+        [
+          { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Allow location', onPress: () => resolve(true) },
+        ],
+      )
+    })
+
+    const loadNearestBranch = async () => {
+      setLocationState('loading')
+      setLocationMessage('Finding a nearby laundry shop...')
+      try {
+        let permission = await Location.getForegroundPermissionsAsync()
+        if (permission.status === Location.PermissionStatus.UNDETERMINED) {
+          setLocationState('permission-needed')
+          if (!(await askForLocation())) {
+            setLocationState('denied')
+            setLocationMessage('Location was not enabled. Browse all branches to choose a store manually.')
+            return
+          }
+          permission = await Location.requestForegroundPermissionsAsync()
+        }
+        if (!permission.granted) {
+          setLocationState('denied')
+          setLocationMessage('Location permission is unavailable. Browse all branches to choose a store manually.')
+          return
+        }
+        if (!(await Location.hasServicesEnabledAsync())) {
+          setLocationState('unavailable')
+          setLocationMessage('Location services are turned off. Turn them on or browse all branches manually.')
+          return
+        }
+
+        const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        if (!active) return
+        updateNearestBranch(currentLocation.coords.latitude, currentLocation.coords.longitude)
+        locationSubscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 500 },
+          (location) => {
+            if (active) updateNearestBranch(location.coords.latitude, location.coords.longitude)
+          },
+        )
+        if (!active) locationSubscription.remove()
+      } catch {
+        if (!active) return
+        setLocationState('unavailable')
+        setLocationMessage('We could not determine your location. Browse all branches manually.')
+      }
+    }
+
+    void loadNearestBranch()
+    return () => {
+      active = false
+      locationSubscription?.remove()
+    }
+  }, [updateNearestBranch]))
 
   const filteredBranches = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
-    if (!query) return BRANCH_CATALOG
+    if (!query) return branches
 
-    return BRANCH_CATALOG.filter((branch) =>
+    return branches.filter((branch) =>
       [
         branch.name,
         branch.address,
@@ -69,13 +185,7 @@ const home = () => {
         .toLowerCase()
         .includes(query),
     )
-  }, [searchQuery])
-
-  const openMainBranchMap = async () => {
-    const query = mainBranch.location?.mapQuery || `${mainBranch.name}, ${mainBranch.address}`
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
-    if (await Linking.canOpenURL(url)) await Linking.openURL(url)
-  }
+  }, [branches, searchQuery])
 
   useEffect(() => {
     const loadCustomerName = async () => {
@@ -264,10 +374,59 @@ const home = () => {
         )}
 
         <View style={styles.mapPlaceholder}>
-          <Ionicons name="map-outline" size={30} color="#9CA3AF" />
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View Main Branch on map" style={styles.mapButton} onPress={() => void openMainBranchMap()}>
-            <Text style={styles.mapButtonText}>View on Map</Text>
-          </TouchableOpacity>
+          <View style={styles.nearestHeadingRow}>
+            <View style={styles.nearestHeadingCopy}>
+              <Text style={styles.nearestTitle}>Nearest Laundry Shop</Text>
+              <Text style={styles.nearestSubtitle}>
+                {locationState === 'ready' ? 'Approximate straight-line distance' : 'Location-based recommendation'}
+              </Text>
+            </View>
+            <Ionicons name="navigate-outline" size={24} color="#2563EB" />
+          </View>
+
+          {nearestBranch && nearestDistance !== null ? (
+            <View style={styles.nearestContent}>
+              <Image source={getBranchImage(nearestBranch)} style={styles.nearestImage} resizeMode="cover" />
+              <View style={styles.nearestDetails}>
+                <Text style={styles.nearestBranchName} numberOfLines={2}>{nearestBranch.name}</Text>
+                <Text style={styles.nearestAddress} numberOfLines={3}>{nearestBranch.address}</Text>
+                <Text style={styles.nearestDistance}>{formatApproximateDistance(nearestDistance)}</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.nearestFallback}>
+              <Ionicons name={locationState === 'loading' || locationState === 'permission-needed' ? 'locate-outline' : 'map-outline'} size={28} color="#688399" />
+              <Text style={styles.nearestFallbackText}>{locationMessage}</Text>
+            </View>
+          )}
+
+          {nearestBranch && (
+            <View style={styles.nearestActions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`View ${nearestBranch.name} details`}
+                style={styles.nearestSecondaryButton}
+                onPress={() => router.push({ pathname: '/insideapp/order_details', params: { branchId: nearestBranch.branchId } })}
+              >
+                <Text style={styles.nearestSecondaryButtonText}>View details</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`Get directions to ${nearestBranch.name}`}
+                style={styles.nearestPrimaryButton}
+                onPress={() => void openBranchMap(nearestBranch).catch(() => Alert.alert('Maps unavailable', 'Directions are not available on this device.'))}
+              >
+                <Ionicons name="navigate-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.nearestPrimaryButtonText}>Directions</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!nearestBranch && locationState !== 'loading' && (
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Browse all branches" style={styles.browseBranchesButton} onPress={() => router.push('/insideapp/branches')}>
+              <Text style={styles.mapButtonText}>Browse all branches</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -440,15 +599,33 @@ const styles = StyleSheet.create({
   openDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#16A34A' },
   openLabel: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
   mapPlaceholder: {
-    height: 96,
+    minHeight: 185,
     marginHorizontal: 16,
     marginTop: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 14,
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
     backgroundColor: '#F3F4F6',
     borderRadius: 12,
   },
-  mapButton: { position: 'absolute', right: 10, bottom: 10, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#2563EB' },
+  nearestHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  nearestHeadingCopy: { flex: 1, minWidth: 0 },
+  nearestTitle: { fontSize: 14, fontWeight: '800', color: '#111827' },
+  nearestSubtitle: { marginTop: 3, fontSize: 10, lineHeight: 14, color: '#6B7280' },
+  nearestContent: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 12, gap: 10 },
+  nearestImage: { width: 82, height: 72, borderRadius: 8, backgroundColor: '#DDEAF0' },
+  nearestDetails: { flex: 1, minWidth: 0 },
+  nearestBranchName: { fontSize: 13, lineHeight: 17, fontWeight: '800', color: '#075191' },
+  nearestAddress: { marginTop: 3, fontSize: 10, lineHeight: 14, color: '#5F6B7A' },
+  nearestDistance: { marginTop: 5, fontSize: 11, fontWeight: '700', color: '#15914D' },
+  nearestFallback: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  nearestFallbackText: { maxWidth: 300, marginTop: 8, fontSize: 11, lineHeight: 16, color: '#688399', textAlign: 'center' },
+  nearestActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  nearestSecondaryButton: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#8BBFE3', backgroundColor: '#FFFFFF', paddingHorizontal: 8 },
+  nearestSecondaryButtonText: { color: '#176A9E', fontSize: 11, fontWeight: '700' },
+  nearestPrimaryButton: { flex: 1, minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: 8, backgroundColor: '#2563EB', paddingHorizontal: 8 },
+  nearestPrimaryButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  browseBranchesButton: { alignSelf: 'center', minHeight: 36, justifyContent: 'center', marginTop: 4, paddingHorizontal: 14, borderRadius: 8, backgroundColor: '#2563EB' },
   mapButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   quickActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, marginTop: 12 },
   actionButton: { flex: 1, alignItems: 'center', paddingVertical: 14, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12 },

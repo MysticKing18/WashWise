@@ -6,6 +6,8 @@ export interface BranchLocation {
   barangay?: string;
   landmark?: string;
   mapQuery?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Branch {

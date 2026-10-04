@@ -35,20 +35,26 @@ service cloud.firestore {
     }
     function validUser(d, uid) {
       return d.keys().hasAll(['userId', 'fullName', 'email', 'createdAt', 'isActive'])
-        && d.keys().hasOnly(['userId', 'fullName', 'email', 'phone', 'photoURL', 'createdAt', 'isActive'])
+        && d.keys().hasOnly(['userId', 'fullName', 'email', 'phone', 'photoURL', 'createdAt', 'isActive', 'termsVersion', 'termsAcceptedAt'])
         && d.userId == uid
         && d.fullName is string && d.email is string
         && d.get('phone', '') is string && d.get('photoURL', '') is string
-        && d.createdAt is timestamp && d.isActive is bool;
+        && d.createdAt is timestamp && d.isActive is bool
+        && d.get('termsVersion', '') is string
+        && d.get('termsAcceptedAt', d.createdAt) is timestamp;
     }
     function validLocation(d) {
       return d is map
         && d.keys().hasAll(['city', 'province'])
-        && d.keys().hasOnly(['city', 'province', 'barangay', 'landmark', 'mapQuery'])
+        && d.keys().hasOnly(['city', 'province', 'barangay', 'landmark', 'mapQuery', 'latitude', 'longitude'])
         && d.city is string && d.province is string
         && d.get('barangay', '') is string
         && d.get('landmark', '') is string
-        && d.get('mapQuery', '') is string;
+        && d.get('mapQuery', '') is string
+        && ((!('latitude' in d) && !('longitude' in d))
+          || (d.latitude is number && d.longitude is number
+            && d.latitude >= -90 && d.latitude <= 90
+            && d.longitude >= -180 && d.longitude <= 180));
     }
     function validBranch(d, id) {
       return d.keys().hasAll(['branchId', 'name', 'address', 'regularPrice', 'rushPrice', 'isActive', 'createdAt', 'updatedAt'])

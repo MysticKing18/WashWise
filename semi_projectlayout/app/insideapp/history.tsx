@@ -37,7 +37,7 @@ export default function CustomerHistory() {
           async (branchId) =>
             [
               branchId,
-              (await getBranchById(branchId))?.name || branchId,
+              (await getBranchById(branchId))?.name?.trim() || "Branch name unavailable",
             ] as const,
         ),
       );
@@ -76,7 +76,7 @@ export default function CustomerHistory() {
             accessibilityLabel="Go back to home"
             style={styles.iconButton}
           >
-            <Ionicons name="arrow-back" size={20} color="#0E6BB7" />
+            <Ionicons name="arrow-back" size={22} color="#0E6BB7" />
           </Pressable>
           <Text style={styles.title}>Order History</Text>
           <Pressable
@@ -84,7 +84,7 @@ export default function CustomerHistory() {
             accessibilityLabel="Refresh order history"
             style={styles.iconButton}
           >
-            <Ionicons name="refresh-outline" size={19} color="#0E6BB7" />
+            <Ionicons name="refresh-outline" size={22} color="#0E6BB7" />
           </Pressable>
         </View>
         <Text style={styles.subtitle}>Completed and cancelled orders</Text>
@@ -107,10 +107,10 @@ export default function CustomerHistory() {
             {orders.map((order) => (
               <View key={order.orderId} style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View>
+                  <View style={styles.cardHeading}>
                     <Text style={styles.orderId}>{order.orderId}</Text>
                     <Text style={styles.branch}>
-                      {branchNames[order.branchId] || order.branchId}
+                      {branchNames[order.branchId] || "Branch name unavailable"}
                     </Text>
                   </View>
                   <Text
@@ -181,30 +181,50 @@ export default function CustomerHistory() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#FFFFFF" },
-  content: { flex: 1, paddingHorizontal: 11, paddingBottom: 10 },
+  content: { flex: 1, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 10 },
   topBar: {
-    height: 54,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
+    marginTop: 4,
   },
   iconButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#C5DDEB",
+    backgroundColor: "rgba(255,255,255,0.9)",
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { color: "#075191", fontSize: 15, fontWeight: "800" },
-  subtitle: { color: "#6B879B", fontSize: 10, marginBottom: 12 },
+  title: {
+    flex: 1,
+    color: "#075191",
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  subtitle: {
+    color: "#6B879B",
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 4,
+    marginBottom: 18,
+  },
   error: {
-    padding: 9,
-    borderRadius: 6,
+    padding: 12,
+    borderRadius: 10,
     color: "#AF3546",
     backgroundColor: "#FFF0F1",
-    fontSize: 9,
-    marginBottom: 8,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
   },
-  empty: { marginTop: 28, color: "#6B879B", fontSize: 10, textAlign: "center" },
+  empty: { marginTop: 28, color: "#6B879B", fontSize: 13, lineHeight: 20, textAlign: "center" },
   emptyCard: {
     alignItems: "center",
     padding: 22,
@@ -217,20 +237,22 @@ const styles = StyleSheet.create({
   emptyTitle: {
     marginTop: 10,
     color: "#075191",
-    fontSize: 14,
+    fontSize: 17,
+    lineHeight: 24,
     fontWeight: "800",
   },
   emptyText: {
-    marginTop: 5,
+    marginTop: 8,
     color: "#6B879B",
-    fontSize: 10,
+    fontSize: 13,
+    lineHeight: 20,
     textAlign: "center",
   },
   list: { paddingBottom: 12 },
   card: {
-    padding: 11,
-    marginBottom: 10,
-    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#D3E3EC",
     backgroundColor: "rgba(255,255,255,0.95)",
@@ -239,28 +261,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: 12,
   },
-  orderId: { color: "#075191", fontSize: 10, fontWeight: "800" },
-  branch: { marginTop: 3, color: "#527B9A", fontSize: 9 },
+  cardHeading: { flex: 1, minWidth: 0 },
+  orderId: { color: "#075191", fontSize: 13, lineHeight: 18, fontWeight: "800" },
+  branch: { marginTop: 5, color: "#527B9A", fontSize: 12, lineHeight: 18 },
   status: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 6,
-    fontSize: 8,
+    flexShrink: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: "800",
   },
   completed: { color: "#15914D", backgroundColor: "#D8F6E4" },
   cancelled: { color: "#AF3546", backgroundColor: "#FFE1E4" },
-  divider: { height: 1, marginVertical: 8, backgroundColor: "#E5EDF2" },
+  divider: { height: 1, marginVertical: 12, backgroundColor: "#E5EDF2" },
   label: {
-    marginTop: 5,
+    marginTop: 8,
     color: "#7B93A0",
-    fontSize: 8,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: "800",
     textTransform: "uppercase",
   },
-  value: { marginTop: 2, color: "#395E73", fontSize: 9 },
-  amount: { marginTop: 2, color: "#075191", fontSize: 12, fontWeight: "800" },
+  value: { marginTop: 4, color: "#395E73", fontSize: 12, lineHeight: 18 },
+  amount: { marginTop: 4, color: "#075191", fontSize: 16, lineHeight: 22, fontWeight: "800" },
   bottomNav: {
     height: 58,
     flexDirection: "row",

@@ -96,7 +96,7 @@ function OrderProgress({ status }: { status: OrderStatus }) {
   if (status === "cancelled")
     return (
       <View style={styles.cancelledBanner}>
-        <Ionicons name="close-circle" size={15} color="#AF3546" />
+        <Ionicons name="close-circle" size={20} color="#AF3546" />
         <Text style={styles.cancelledText}>Order cancelled</Text>
       </View>
     );
@@ -112,7 +112,7 @@ function OrderProgress({ status }: { status: OrderStatus }) {
             ]}
           >
             {index <= activeIndex ? (
-              <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={15} color="#FFFFFF" />
             ) : null}
           </View>
           <Text
@@ -145,6 +145,7 @@ export default function CustomerOrders() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const loadOrders = async (isRefresh = false) => {
     const customerId = auth.currentUser?.uid;
@@ -166,7 +167,7 @@ export default function CustomerOrders() {
           async (branchId) =>
             [
               branchId,
-              (await getBranchById(branchId))?.name || branchId,
+              (await getBranchById(branchId))?.name?.trim() || "Branch name unavailable",
             ] as const,
         ),
       );
@@ -249,33 +250,36 @@ export default function CustomerOrders() {
       <View style={styles.content}>
         <View style={styles.topBar}>
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Go back to home"
             onPress={() => router.replace("/insideapp/home")}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={20} color="#0E6BB7" />
+            <Ionicons name="arrow-back" size={22} color="#0E6BB7" />
           </Pressable>
           <Text style={styles.title}>My Orders</Text>
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Refresh orders"
             onPress={() => void loadOrders(true)}
             style={styles.refreshButton}
           >
-            <Ionicons name="refresh-outline" size={19} color="#0E6BB7" />
+            <Ionicons name="refresh-outline" size={22} color="#0E6BB7" />
           </Pressable>
         </View>
         <View style={styles.headingRow}>
-          <View>
+          <View style={styles.headingCopy}>
             <Text style={styles.sectionTitle}>Track your laundry</Text>
             <Text style={styles.subtitle}>
               View the latest progress of your orders.
             </Text>
           </View>
           <Pressable
+            accessibilityRole="button"
             onPress={() => router.push("/insideapp/branches")}
             style={styles.newOrderButton}
           >
-            <Ionicons name="add" size={14} color="#FFFFFF" />
+            <Ionicons name="add" size={18} color="#FFFFFF" />
             <Text style={styles.newOrderText}>New Order</Text>
           </Pressable>
         </View>
@@ -301,45 +305,74 @@ export default function CustomerOrders() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.list}
           >
-            {orders.map((order) => (
-              <View key={order.orderId} style={styles.orderCard}>
-                <View style={styles.orderHeader}>
-                  <View>
-                    <Text style={styles.orderId}>{order.orderId}</Text>
-                    <Text style={styles.branch}>
-                      {branchNames[order.branchId] || order.branchId}
-                    </Text>
-                  </View>
-                  <Text style={styles.status}>{statusLabel(order.status)}</Text>
-                </View>
-                <View style={styles.divider} />
-                <Text style={styles.detailLabel}>Service</Text>
-                <Text style={styles.detailValue}>
-                  {order.serviceType || "Laundry service"} -{" "}
-                  {order.priority === "rush" ? "Rush" : "Regular"}
-                </Text>
-                <Text style={styles.detailLabel}>Laundry details</Text>
-                <Text style={styles.detailValue}>
-                  {order.laundryDetails || "No additional details provided."}
-                </Text>
-                <Text style={styles.detailLabel}>Amount</Text>
-                <Text style={styles.amount}>
-                  {priceFor(order) === undefined
-                    ? "To be confirmed"
-                    : `P${priceFor(order)?.toFixed(2)}`}
-                </Text>
-                <OrderProgress status={order.status} />
-                {order.status === "pending_dropoff" ? (
+            {orders.map((order) => {
+              const isExpanded = expandedOrderId === order.orderId;
+              const branchName = branchNames[order.branchId] || "Branch name unavailable";
+              return (
+                <View
+                  key={order.orderId}
+                  style={[styles.orderCard, isExpanded && styles.orderCardExpanded]}
+                >
                   <Pressable
-                    disabled={cancellingId === order.orderId}
-                    onPress={() => requestCancellation(order)}
-                    style={styles.cancelButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${isExpanded ? "Hide" : "Show"} tracking details for order ${order.orderId}, ${branchName}, ${statusLabel(order.status)}`}
+                    accessibilityState={{ expanded: isExpanded }}
+                    onPress={() => setExpandedOrderId((current) => current === order.orderId ? null : order.orderId)}
+                    style={({ pressed }) => [styles.orderHeader, pressed && styles.orderHeaderPressed]}
                   >
-                    <Text style={styles.cancelButtonText}>Cancel Order</Text>
+                    <View style={styles.orderSummary}>
+                      <Text style={styles.branch}>
+                        {branchName}
+                      </Text>
+                      <Text style={styles.orderId}>Order #{order.orderId}</Text>
+                      <View style={styles.summaryMeta}>
+                        <Text style={styles.status}>{statusLabel(order.status)}</Text>
+                        <Text style={styles.toggleLabel}>
+                          {isExpanded ? "Hide details" : "View tracking details"}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.chevron, isExpanded && styles.chevronExpanded]}>
+                      <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={21} color="#0877C8" />
+                    </View>
                   </Pressable>
-                ) : null}
-              </View>
-            ))}
+                  {isExpanded && (
+                    <View style={styles.orderDetails}>
+                      <View style={styles.divider} />
+                      <Text style={styles.detailLabel}>Service</Text>
+                      <Text style={styles.detailValue}>
+                        {order.serviceType || "Laundry service"} -{" "}
+                        {order.priority === "rush" ? "Rush" : "Regular"}
+                      </Text>
+                      <Text style={styles.detailLabel}>Laundry details</Text>
+                      <Text style={styles.detailValue}>
+                        {order.laundryDetails || "No additional details provided."}
+                      </Text>
+                      <Text style={styles.detailLabel}>Amount</Text>
+                      <Text style={styles.amount}>
+                        {priceFor(order) === undefined
+                          ? "To be confirmed"
+                          : `P${priceFor(order)?.toFixed(2)}`}
+                      </Text>
+                      <View style={styles.trackingPanel}>
+                        <Text style={styles.trackingTitle}>Laundry progress</Text>
+                        <OrderProgress status={order.status} />
+                      </View>
+                      {order.status === "pending_dropoff" ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          disabled={cancellingId === order.orderId}
+                          onPress={() => requestCancellation(order)}
+                          style={styles.cancelButton}
+                        >
+                          <Text style={styles.cancelButtonText}>Cancel Order</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </ScrollView>
         )}
       </View>
@@ -411,43 +444,87 @@ const styles = StyleSheet.create({
   backgroundBubble: { position: "absolute" },
   content: { flex: 1, paddingHorizontal: 10, paddingBottom: 10 },
   topBar: {
-    height: 52,
+    minHeight: 64,
+    paddingVertical: 10,
+    marginHorizontal: 4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
   },
   backButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#C3DFEF",
+    backgroundColor: "rgba(255,255,255,0.8)",
   },
   refreshButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#C3DFEF",
+    backgroundColor: "rgba(255,255,255,0.8)",
   },
-  title: { color: "#075191", fontSize: 15, fontWeight: "800" },
+  title: {
+    flex: 1,
+    color: "#075191",
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "800",
+    textAlign: "center",
+  },
   headingRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 14,
-    marginBottom: 12,
+    gap: 12,
+    paddingHorizontal: 4,
+    marginTop: 12,
+    marginBottom: 20,
   },
-  sectionTitle: { color: "#034C8A", fontSize: 14, fontWeight: "800" },
-  subtitle: { marginTop: 3, color: "#6B879B", fontSize: 9 },
+  headingCopy: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 170,
+    minWidth: 0,
+  },
+  sectionTitle: {
+    color: "#034C8A",
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "800",
+  },
+  subtitle: {
+    marginTop: 5,
+    color: "#52758E",
+    fontSize: 13,
+    lineHeight: 19,
+  },
   newOrderButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 9,
-    height: 29,
-    borderRadius: 6,
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 44,
+    borderRadius: 12,
     backgroundColor: "#0877D1",
   },
-  newOrderText: { color: "#FFFFFF", fontSize: 8, fontWeight: "800" },
+  newOrderText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
   error: {
     padding: 9,
     borderRadius: 6,
@@ -490,62 +567,123 @@ const styles = StyleSheet.create({
   pickButtonText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700" },
   list: { paddingBottom: 12 },
   orderCard: {
-    padding: 11,
-    marginBottom: 10,
-    borderRadius: 10,
+    marginBottom: 14,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#D3E3EC",
     backgroundColor: "rgba(255,255,255,0.95)",
+    overflow: "hidden",
+  },
+  orderCardExpanded: {
+    borderColor: "#93C8E9",
   },
   orderHeader: {
+    padding: 16,
     flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
   },
-  orderId: { color: "#075191", fontSize: 10, fontWeight: "800" },
-  branch: { marginTop: 3, color: "#527B9A", fontSize: 9 },
-  status: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 6,
-    color: "#0877C8",
-    backgroundColor: "#DDF1FF",
-    fontSize: 8,
-    fontWeight: "800",
+  orderHeaderPressed: {
+    backgroundColor: "#EDF7FE",
   },
-  divider: { height: 1, marginVertical: 8, backgroundColor: "#E5EDF2" },
-  detailLabel: {
+  orderSummary: {
+    flex: 1,
+    minWidth: 0,
+  },
+  orderId: {
     marginTop: 5,
-    color: "#7B93A0",
-    fontSize: 8,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    color: "#527B9A",
+    fontSize: 12,
+    lineHeight: 18,
   },
-  detailValue: { marginTop: 2, color: "#395E73", fontSize: 9 },
-  amount: { marginTop: 2, color: "#075191", fontSize: 12, fontWeight: "800" },
-  progress: { flexDirection: "row", alignItems: "flex-start", marginTop: 15 },
-  progressStep: { flex: 1, alignItems: "center", position: "relative" },
-  progressDot: {
-    width: 19,
-    height: 19,
+  branch: {
+    color: "#075191",
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "800",
+  },
+  summaryMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  toggleLabel: {
+    color: "#527B9A",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  chevron: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#F0F7FC",
+  },
+  chevronExpanded: {
+    backgroundColor: "#DDF1FF",
+  },
+  status: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 7,
+    flexShrink: 1,
+    color: "#0877C8",
+    backgroundColor: "#DDF1FF",
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: "800",
+  },
+  orderDetails: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  divider: { height: 1, backgroundColor: "#E5EDF2" },
+  detailLabel: {
+    marginTop: 14,
+    color: "#627F91",
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  detailValue: { marginTop: 4, color: "#395E73", fontSize: 14, lineHeight: 21 },
+  amount: { marginTop: 4, color: "#075191", fontSize: 21, lineHeight: 28, fontWeight: "800" },
+  trackingPanel: {
+    marginTop: 18,
+    padding: 12,
     borderRadius: 10,
+    backgroundColor: "#F2F8FC",
+  },
+  trackingTitle: { color: "#075191", fontSize: 13, lineHeight: 19, fontWeight: "700" },
+  progress: { flexDirection: "row", alignItems: "flex-start", marginTop: 16 },
+  progressStep: { flex: 1, alignItems: "center", position: "relative" },
+  progressDot: {
+    width: 26,
+    height: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
     backgroundColor: "#D8E4EA",
+    zIndex: 1,
   },
   progressDotActive: { backgroundColor: "#0877D1" },
   progressLabel: {
-    marginTop: 4,
-    color: "#8B9AA7",
-    fontSize: 6,
+    marginTop: 7,
+    paddingHorizontal: 2,
+    color: "#627F91",
+    fontSize: 10,
+    lineHeight: 14,
     textAlign: "center",
   },
   progressLabelActive: { color: "#0877C8", fontWeight: "800" },
   progressLine: {
     position: "absolute",
-    top: 9,
-    left: "58%",
-    width: "84%",
+    top: 12,
+    left: "50%",
+    width: "100%",
     height: 2,
     backgroundColor: "#D8E4EA",
   },
@@ -553,23 +691,25 @@ const styles = StyleSheet.create({
   cancelledBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    padding: 7,
+    gap: 7,
+    padding: 10,
     marginTop: 14,
     borderRadius: 6,
     backgroundColor: "#FFE1E4",
   },
-  cancelledText: { color: "#AF3546", fontSize: 8, fontWeight: "800" },
+  cancelledText: { flex: 1, color: "#AF3546", fontSize: 13, lineHeight: 19, fontWeight: "700" },
   cancelButton: {
-    height: 31,
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
-    borderRadius: 6,
+    marginTop: 16,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E29AA3",
   },
-  cancelButtonText: { color: "#AF3546", fontSize: 9, fontWeight: "800" },
+  cancelButtonText: { color: "#AF3546", fontSize: 13, lineHeight: 20, fontWeight: "800" },
   modalOverlay: {
     flex: 1,
     alignItems: "center",

@@ -21,6 +21,12 @@
       "expo-status-bar",
       "expo-font",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow WashWise to find the nearest laundry shop."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#E6F4FE",

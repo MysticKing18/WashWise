@@ -84,6 +84,12 @@ async function main() {
   const b = client("staff-b"), admin = client("admin"), inactive = client("inactive");
   await check("anonymous branch read denied", false, () => getDoc(doc(client(""), "branches/branch-a")));
   await check("customer branch read", true, () => getDoc(doc(customer, "branches/branch-a")));
+  await check("customer registration profile with terms", true, () => setDoc(doc(customer, "users/new-customer"), {
+    ...profile("new-customer"),
+    createdAt: serverTimestamp(),
+    termsVersion: "v1",
+    termsAcceptedAt: serverTimestamp(),
+  }));
   await check("customer branch edit denied", false, () => updateDoc(doc(customer, "branches/branch-a"), { regularPrice: 1 }));
   await check("admin branch create", true, () => setDoc(doc(admin, "branches/branch-c"), branch("branch-c")));
   const typo = branch("branch-typo"); typo.rishPrice = typo.rushPrice; delete typo.rushPrice;

@@ -23,3 +23,24 @@ export const openBranchMap = async (branch: Branch): Promise<void> => {
   if (!canOpen) throw new Error('Maps link is unavailable')
   await Linking.openURL(url)
 }
+
+export const getDistanceInKilometers = (
+  latitude: number,
+  longitude: number,
+  branch: Branch,
+): number | null => {
+  const branchLatitude = branch.location?.latitude
+  const branchLongitude = branch.location?.longitude
+  if (typeof branchLatitude !== 'number' || typeof branchLongitude !== 'number') return null
+
+  const toRadians = (degrees: number) => degrees * (Math.PI / 180)
+  const earthRadiusInKilometers = 6371
+  const latitudeDifference = toRadians(branchLatitude - latitude)
+  const longitudeDifference = toRadians(branchLongitude - longitude)
+  const startLatitude = toRadians(latitude)
+  const endLatitude = toRadians(branchLatitude)
+  const haversine = Math.sin(latitudeDifference / 2) ** 2
+    + Math.cos(startLatitude) * Math.cos(endLatitude) * Math.sin(longitudeDifference / 2) ** 2
+
+  return 2 * earthRadiusInKilometers * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+}

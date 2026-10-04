@@ -129,7 +129,7 @@ export default function Branches() {
           <Text style={styles.subtitle}>Select the most convenient location for you</Text>
 
           <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={21} color="#688399" />
+            <Ionicons name="search-outline" size={22} color="#688399" />
             <TextInput
               accessibilityLabel="Search branches by name or location"
               value={search}
@@ -269,61 +269,71 @@ const styles = StyleSheet.create({
   },
 
   topBar: {
-    minHeight: 48,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 4,
   },
 
   backButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#C5DDEB',
+    backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   topBarSpacer: {
-    width: 36,
+    width: 44,
   },
 
   title: {
     flex: 1,
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '800',
     color: '#075191',
     textAlign: 'left',
   },
 
   subtitle: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 20,
     color: '#5F6B7A',
-    marginBottom: 10,
+    marginTop: 4,
+    marginBottom: 16,
   },
 
   searchBox: {
-    minHeight: 38,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#C5D8E5',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     backgroundColor: 'rgba(255,255,255,0.94)',
+    marginBottom: 6,
   },
 
   searchInput: {
     flex: 1,
     minWidth: 0,
-    marginLeft: 8,
-    fontSize: 11,
+    marginLeft: 10,
+    fontSize: 14,
+    lineHeight: 20,
     color: '#173D5A',
-    paddingVertical: 4,
+    paddingVertical: 10,
   },
 
   clearButton: {
-    width: 30,
-    height: 30,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
